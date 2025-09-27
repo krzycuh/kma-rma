@@ -1,0 +1,12 @@
+services:
+  kma-rma:
+    image: kma-rma:latest
+    container_name: kma-rma
+    platform: linux/arm64
+    ports:
+      - "3000:3000"
+    environment:
+      - TOKENS=devtoken->Developer
+    restart: unless-stopped
+
+
