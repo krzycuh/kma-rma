@@ -1,6 +1,16 @@
-## KMA Node Template – Build and Development Guide
+## RMA (RaspberryPi Management App)
 
-This repository is a pnpm workspace with a minimal Node backend and a React SPA frontend. The backend serves static assets from the built frontend in production and uses a simple token-based auth via a `?token=...` URL parameter.
+### Overview
+RMA is a lightweight app to monitor Raspberry Pi devices. MVP focuses on live metrics for CPU, RAM, and basic GPU information (temperature/memory). Future iterations may add disk, network, processes, and alerting.
+
+### MVP Goals (v0.1)
+- Show near real-time metrics per Raspberry Pi:
+  - CPU: usage %, temperature, clock
+  - RAM: total/used/free
+  - GPU: temperature, memory (utilization if feasible)
+- Monitor only the host Raspberry Pi (single-device scope)
+- Simple web dashboard with auto-refresh/streaming updates
+- Token-only access (required for API and UI)
 
 ### Prerequisites
 - Node 18+

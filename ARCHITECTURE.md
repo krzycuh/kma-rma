@@ -51,6 +51,9 @@ PUBLIC_DIR resolution: `<NODE_CWD>/../frontend/dist` so the backend serves the b
 ### API Endpoints
 All endpoints expect `?token=<token>` in the query string.
 - `GET /api/user` → `{ name: string }` – validates token, returns user name
+- `GET /api/metrics` → current host metrics snapshot (CPU, RAM, GPU)
+- `GET /api/metrics/history?limit=N` → recent samples from in-memory buffer
+- Optional streaming: `GET /api/metrics/stream` (SSE) or `WS /ws` for live updates
 
 ### Static/Pages
 - Static assets served from `frontend/dist` when URL has an extension
