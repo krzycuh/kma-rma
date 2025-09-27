@@ -1,5 +1,5 @@
 import http, { IncomingMessage, ServerResponse } from 'http';
-import { PORT, PUBLIC_DIR } from './config';
+import { HOST, PORT, PUBLIC_DIR } from './config';
 import { parseUrl } from './utils/urlParser';
 import { validateToken } from './middleware/auth';
 import { handlePageRoutes, handleNotFound } from './routes/pageRoutes';
@@ -42,7 +42,7 @@ function createServer(): http.Server {
 
 if (require.main === module) {
   const server = createServer();
-  server.listen(PORT, () => {
+  server.listen(PORT, HOST, () => {
     console.log(new Date().toISOString(), `Server listening on port ${PORT}`);
     console.log(new Date().toISOString(), `PUBLIC_DIR: ${PUBLIC_DIR}`);
   });

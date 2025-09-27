@@ -4,7 +4,7 @@ services:
     container_name: kma-rma
     platform: linux/arm64
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
       - TOKENS=devtoken->Developer
     restart: unless-stopped
