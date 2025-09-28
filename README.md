@@ -120,6 +120,31 @@ Open: `http://localhost:3001/?token=devtoken`
 docker compose up -d
 ```
 
+### Raspberry Pi prerequisites and container mounts
+
+`vcgencmd` and thermal/clock readings require Raspberry Pi firmware tools and access to system interfaces:
+
+- Ensure `vcgencmd` is available on the host:
+  - On Raspberry Pi OS, install: `sudo apt update && sudo apt install -y libraspberrypi-bin`
+  - Some features may require enablement in `sudo raspi-config`.
+- When running in Docker, grant the container access to host metrics:
+  - Option A (simplest): run privileged
+    - docker run --rm -p 3001:3001 \
+      --privileged \
+      -e TOKENS=devtoken->Developer \
+      kma-rma:latest
+  - Option B (more constrained): mount specific paths and binary
+    - docker run --rm -p 3001:3001 \
+      -v /proc:/proc:ro \
+      -v /sys:/sys:ro \
+      -v /usr/bin/vcgencmd:/usr/bin/vcgencmd:ro \
+      -e TOKENS=devtoken->Developer \
+      kma-rma:latest
+
+Notes:
+- Without these mounts/capabilities, CPU temp/clock and GPU memory may be null.
+- Some models expose a single thermal sensor; GPU temp may mirror CPU temp.
+
 ## ARM64 image export and Raspberry Pi deploy (optional)
 Helper scripts expect fish shell and an SSH-accessible target.
 

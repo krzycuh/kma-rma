@@ -94,6 +94,10 @@ Backend env files:
 - `docker-compose.yml` minimal example:
   - Maps port 3001, sets `TOKENS`, restarts unless-stopped
 
+Raspberry Pi specifics:
+- `vcgencmd` requires Raspberry Pi firmware tools on the host; install `libraspberrypi-bin`.
+- When containerized, either run the container with `--privileged` or mount `/proc`, `/sys`, and `/usr/bin/vcgencmd` into the container so the app can read temps/clock and GPU memory.
+
 Helper scripts (fish):
 - `build-and-export.fish`: build linux/arm64 image via `docker buildx`, save to `target/kma-wol-app-arm.tar`
 - `copy-and-load-to-rpi.fish <user@host>`: scp tar to RPi, `docker load`, and `docker compose up -d --force-recreate kma-wol-app`
