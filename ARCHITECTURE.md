@@ -41,7 +41,7 @@ Key modules:
 
 ### Environment and Configuration
 Set via env variables (see examples):
-- `PORT`: backend port (default 4000)
+- `PORT`: backend port (default 3001)
 - `TOKENS`: comma-separated `token->UserName` pairs
   - Example: `TOKENS=aaa->User1,bbb->User2`
 - `NODE_CWD`: working dir base for locating `PUBLIC_DIR` and logs (defaults to process cwd)
@@ -90,9 +90,9 @@ Backend env files:
 ## Docker and Deployment
 - `Dockerfile`: multi-stage build
   - Stage builder: installs workspace deps, builds `frontend` and `backend`
-  - Stage runtime: installs only backend production deps, copies built artifacts, `EXPOSE 4000`, `CMD node backend/dist/src/server.js`
+  - Stage runtime: installs only backend production deps, copies built artifacts, `EXPOSE 3001`, `CMD node backend/dist/src/server.js`
 - `docker-compose.yml` minimal example:
-  - Maps port 4000, sets `TOKENS`, restarts unless-stopped
+  - Maps port 3001, sets `TOKENS`, restarts unless-stopped
 
 Helper scripts (fish):
 - `build-and-export.fish`: build linux/arm64 image via `docker buildx`, save to `target/kma-wol-app-arm.tar`
@@ -123,6 +123,6 @@ Guidelines:
 2) Create `.env` in `backend/` parent with at least:
    - `TOKENS=aaa->User1`
 3) `pnpm dev` (backend only) or build then run docker
-4) Open `http://localhost:4000/?token=aaa`
+4) Open `http://localhost:3001/?token=aaa`
 
 

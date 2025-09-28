@@ -29,7 +29,7 @@ RUN pnpm install --prod --frozen-lockfile --filter backend
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/frontend/dist ./frontend/dist
 
-EXPOSE 4000
+EXPOSE 3001
 ENV NODE_CWD=/app/backend
 
 CMD ["node", "backend/dist/server.js"]

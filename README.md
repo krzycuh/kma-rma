@@ -31,8 +31,8 @@ Create a `.env` file at the repository root (parent of `backend/`). The backend 
 # Required: map of token->DisplayName pairs
 TOKENS=aaa->User1,bbb->User2
 
-# Optional: backend port (default 4000)
-PORT=4000
+# Optional: backend port (default 3001)
+PORT=3001
 
 # Optional: bind address (default 127.0.0.1). Use 0.0.0.0 to expose on LAN
 HOST=127.0.0.1
@@ -62,7 +62,7 @@ pnpm install
 You can run backend-only, or run backend and Vite dev server side-by-side.
 
 ### Backend (TypeScript, nodemon)
-Runs on port 4000 and reads `../.env`.
+Runs on port 3001 and reads `../.env`.
 
 ```bash
 pnpm dev
@@ -72,7 +72,7 @@ pnpm dev
 Open the app using the Vite dev server (below) or against the built frontend once you build it.
 
 ### Frontend (Vite dev server)
-Vite proxies `/api` to `http://localhost:4000`.
+Vite proxies `/api` to `http://localhost:3001`.
 
 ```bash
 pnpm --filter frontend dev
@@ -80,18 +80,18 @@ pnpm --filter frontend dev
 
 Access during dev:
 - Vite: `http://localhost:5173/?token=aaa`
-- Backend API (direct): `http://localhost:4000/api/user?token=aaa`
-- Health: `http://localhost:4000/api/health?token=aaa`
+- Backend API (direct): `http://localhost:3001/api/user?token=aaa`
+- Health: `http://localhost:3001/api/health?token=aaa`
 
 ## Build and Run (Production-like)
 Build both workspaces, then start the backend which serves the built SPA.
 
 ```bash
 pnpm build         # builds backend then frontend
-pnpm start         # starts backend on PORT (default 4000)
+pnpm start         # starts backend on PORT (default 3001)
 ```
 
-Access: `http://localhost:4000/?token=aaa`
+Access: `http://localhost:3001/?token=aaa`
 
 ### Clean
 ```bash
@@ -108,10 +108,10 @@ pnpm --filter backend test
 ### Build and run locally
 ```bash
 docker build -t kma-rma:latest .
-docker run --rm -p 4000:4000 -e TOKENS=devtoken->Developer kma-rma:latest
+docker run --rm -p 3001:3001 -e TOKENS=devtoken->Developer kma-rma:latest
 ```
 
-Open: `http://localhost:4000/?token=devtoken`
+Open: `http://localhost:3001/?token=devtoken`
 
 ### Using docker-compose
 `docker-compose.yml` provides a minimal service definition:

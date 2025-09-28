@@ -37,7 +37,7 @@ function App() {
   useEffect(() => {
     if (!user || !token) return;
     void loadData();
-    const id = setInterval(() => void loadData(), 4000);
+    const id = setInterval(() => void loadData(), 3001);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, token]);
