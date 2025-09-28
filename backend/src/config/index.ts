@@ -29,4 +29,7 @@ const getPublicDir = () => {
 
 export const PUBLIC_DIR = getPublicDir();
 
+export const ENABLE_DOCKER_STATS = (process.env.ENABLE_DOCKER_STATS || 'false') === 'true';
+export const DOCKER_SOCK_PATH = process.env.DOCKER_SOCK_PATH || '/var/run/docker.sock';
+
 

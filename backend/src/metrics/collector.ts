@@ -62,7 +62,7 @@ async function readCpuTemp(): Promise<TemperatureCelsius | null> {
   return readThermalZone0Temp();
 }
 
-// Removed readCpuClock and readGpuMem as they are no longer used
+
 
 export class LocalMetricsCollector {
   private timer: NodeJS.Timeout | null = null;

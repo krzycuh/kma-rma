@@ -32,6 +32,5 @@ export type TemperatureCelsius = {
   celsius: number;
 };
 
-// Removed ClockHz and MemoryAmount as clock/GPU memory are no longer collected
 
 

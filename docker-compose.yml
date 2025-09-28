@@ -7,6 +7,9 @@ services:
       - "3001:3001"
     environment:
       - TOKENS=devtoken->Developer
+      - ENABLE_DOCKER_STATS=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 

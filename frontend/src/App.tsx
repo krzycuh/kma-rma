@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, TextField, Typography } from '@mui/material';
 import Sparkline from './components/Sparkline';
+import TopContainers from './components/TopContainers';
 
 function App() {
   const [token, setToken] = useState<string | null>(null);
@@ -94,7 +95,7 @@ function App() {
           <Typography variant="body2" className="text-gray-500">Zalogowany jako {user}</Typography>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
           <div className="h-full">
           <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
             <CardContent className="h-full flex flex-col gap-2">
@@ -119,6 +120,14 @@ function App() {
               <div className="mt-auto">
                 <Sparkline values={ramSeries} />
               </div>
+            </CardContent>
+          </Card>
+          </div>
+          <div className="h-full md:col-span-2">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">Containers</Typography>
+              <TopContainers token={token!} />
             </CardContent>
           </Card>
           </div>
