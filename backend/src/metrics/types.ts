@@ -32,13 +32,6 @@ export type TemperatureCelsius = {
   celsius: number;
 };
 
-export type ClockHz = {
-  hertz: number;
-};
-
-export type MemoryAmount = {
-  bytes: number;
-  megabytes: number;
-};
+// Removed ClockHz and MemoryAmount as clock/GPU memory are no longer collected
 
 

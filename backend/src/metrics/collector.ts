@@ -1,8 +1,8 @@
 import { promises as fs } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { computeCpuUsagePercent, parseProcMeminfo, parseProcStat, parseVcgencmdGetMemGpu, parseVcgencmdMeasureClock, parseVcgencmdMeasureTemp } from './index';
-import { ClockHz, CpuTimes, MemoryAmount, MemoryStats, TemperatureCelsius } from './types';
+import { computeCpuUsagePercent, parseProcMeminfo, parseProcStat, parseVcgencmdMeasureTemp } from './index';
+import { CpuTimes, MemoryStats, TemperatureCelsius } from './types';
 
 const execFileAsync = promisify(execFile);
 
@@ -10,14 +10,9 @@ export type MetricsSnapshot = {
   ts: number;
   cpu: {
     usagePercent: number | null;
-    clockHz: number | null;
     temperatureC: number | null;
   };
   memory: MemoryStats;
-  gpu: {
-    temperatureC: number | null;
-    memoryMB: number | null;
-  };
 };
 
 async function readTextFile(path: string): Promise<string | null> {
@@ -67,17 +62,7 @@ async function readCpuTemp(): Promise<TemperatureCelsius | null> {
   return readThermalZone0Temp();
 }
 
-async function readCpuClock(): Promise<ClockHz | null> {
-  const out = await runVcgencmd(['measure_clock', 'arm']);
-  if (!out) return null;
-  return parseVcgencmdMeasureClock(out);
-}
-
-async function readGpuMem(): Promise<MemoryAmount | null> {
-  const out = await runVcgencmd(['get_mem', 'gpu']);
-  if (!out) return null;
-  return parseVcgencmdGetMemGpu(out);
-}
+// Removed readCpuClock and readGpuMem as they are no longer used
 
 export class LocalMetricsCollector {
   private timer: NodeJS.Timeout | null = null;
@@ -104,12 +89,10 @@ export class LocalMetricsCollector {
   }
 
   private async pollOnce(): Promise<void> {
-    const [cpuTimes, mem, cpuTemp, cpuClock, gpuMem] = await Promise.all([
+    const [cpuTimes, mem, cpuTemp] = await Promise.all([
       readProcStat(),
       readProcMeminfo(),
-      readCpuTemp(),
-      readCpuClock(),
-      readGpuMem()
+      readCpuTemp()
     ]);
 
     const usagePercent = this.computeUsage(cpuTimes);
@@ -129,14 +112,9 @@ export class LocalMetricsCollector {
       ts: Date.now(),
       cpu: {
         usagePercent,
-        clockHz: cpuClock?.hertz ?? null,
         temperatureC: cpuTemp?.celsius ?? null
       },
-      memory,
-      gpu: {
-        temperatureC: (cpuTemp?.celsius ?? null), // many Pi models expose a single sensor
-        memoryMB: gpuMem ? Math.round(gpuMem.megabytes) : null
-      }
+      memory
     };
 
     try {

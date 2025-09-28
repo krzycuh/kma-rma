@@ -64,82 +64,64 @@ function App() {
 
   if (loading) {
     return (
-      <Box className="min-h-screen flex items-center justify-center">
-        <Typography>Loading…</Typography>
+      <Box className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
+        <Typography className="text-gray-600">Loading…</Typography>
       </Box>
     );
   }
 
   if (!token || !user) {
     return (
-      <Box className="min-h-screen flex items-center justify-center p-4">
-        <Box className="w-full max-w-md space-y-4">
-          <Typography variant="h5">Enter token</Typography>
+      <Box className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
+        <Box className="w-full max-w-md space-y-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-100 p-6">
+          <Typography variant="h4" className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">Raspberry Pi Manager</Typography>
+          <Typography variant="body2" className="text-gray-500">Podaj token, aby przejść dalej</Typography>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField fullWidth label="Token" onChange={(e) => setToken(e.target.value)} />
-          <Button variant="contained" onClick={() => token && checkAuth(token)}>Sign in</Button>
+          <Button variant="contained" onClick={() => token && checkAuth(token)} className="!bg-gradient-to-r !from-violet-600 !to-indigo-600 !text-white" disableElevation>
+            Zaloguj
+          </Button>
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box className="min-h-screen p-6 space-y-4">
-      <Typography variant="h5">Raspberry Pi Metrics</Typography>
-      <Typography variant="body2" className="text-gray-500">Signed in as {user}</Typography>
+    <Box className="min-h-screen p-6 bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="text-center space-y-2">
+          <Typography variant="h3" className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">Raspberry Pi Manager</Typography>
+          <Typography variant="body2" className="text-gray-500">Zalogowany jako {user}</Typography>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">CPU Usage</Typography>
-              <Typography variant="h5">{snapshot?.cpu?.usagePercent != null ? `${snapshot.cpu.usagePercent.toFixed(1)}%` : '—'}</Typography>
-              <Sparkline values={cpuSeries} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 items-stretch">
+          <div className="h-full">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">CPU</Typography>
+              <Typography variant="h5">
+                {snapshot?.cpu?.usagePercent != null ? `${snapshot.cpu.usagePercent.toFixed(1)}%` : '—'}
+                <span className="text-sm text-gray-500 ml-3">{snapshot?.cpu?.temperatureC != null ? `${snapshot.cpu.temperatureC.toFixed(1)}°C` : ''}</span>
+              </Typography>
+              <div className="mt-auto">
+                <Sparkline values={cpuSeries} />
+              </div>
             </CardContent>
           </Card>
-        </div>
-        <div>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">CPU Temp</Typography>
-              <Typography variant="h5">{snapshot?.cpu?.temperatureC != null ? `${snapshot.cpu.temperatureC.toFixed(1)}°C` : '—'}</Typography>
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">CPU Clock</Typography>
-              <Typography variant="h5">{snapshot?.cpu?.clockHz != null ? `${(snapshot.cpu.clockHz/1e6).toFixed(0)} MHz` : '—'}</Typography>
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card>
-            <CardContent>
+          </div>
+          <div className="h-full">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
               <Typography variant="subtitle2">RAM Used</Typography>
               <Typography variant="h5">
                 {snapshot?.memory ? `${(snapshot.memory.usedKB/1024).toFixed(0)} MB / ${(snapshot.memory.memTotalKB/1024).toFixed(0)} MB` : '—'}
               </Typography>
-              <Sparkline values={ramSeries} />
+              <div className="mt-auto">
+                <Sparkline values={ramSeries} />
+              </div>
             </CardContent>
           </Card>
-        </div>
-        <div>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">GPU Temp</Typography>
-              <Typography variant="h5">{snapshot?.gpu?.temperatureC != null ? `${snapshot.gpu.temperatureC.toFixed(1)}°C` : '—'}</Typography>
-            </CardContent>
-          </Card>
-        </div>
-        <div>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle2">GPU Memory</Typography>
-              <Typography variant="h5">{snapshot?.gpu?.memoryMB != null ? `${snapshot.gpu.memoryMB} MB` : '—'}</Typography>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </div>
     </Box>
