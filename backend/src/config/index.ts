@@ -32,4 +32,6 @@ export const PUBLIC_DIR = getPublicDir();
 export const ENABLE_DOCKER_STATS = (process.env.ENABLE_DOCKER_STATS || 'false') === 'true';
 export const DOCKER_SOCK_PATH = process.env.DOCKER_SOCK_PATH || '/var/run/docker.sock';
 
+export const LOGS_MAX_TAIL = parseInt(process.env.LOGS_MAX_TAIL || '2000', 10);
+
 
