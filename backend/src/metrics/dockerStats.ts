@@ -1,5 +1,4 @@
-import http from 'http';
-import { DOCKER_SOCK_PATH } from '../config';
+import { dockerJsonRequest } from '../docker/client';
 
 export type ContainerStat = {
   id: string;
@@ -9,40 +8,20 @@ export type ContainerStat = {
   memMB: number;
 };
 
-const agent = new http.Agent({ keepAlive: true });
-
-async function requestDocker(path: string): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const req = (http.request as any)({
-      socketPath: DOCKER_SOCK_PATH,
-      path,
-      method: 'GET',
-      agent
-    }, (res: any) => {
-      let data = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk: string) => (data += chunk));
-      res.on('end', () => {
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
-        } else {
-          reject(new Error(`Docker API ${path} status ${res.statusCode}`));
-        }
-      });
-    });
-    req.on('error', reject);
-    req.end();
-  });
-}
-
 export async function getContainersStats(): Promise<ContainerStat[]> {
   try {
-    const containers = await requestDocker('/containers/json');
+    const containers = await dockerJsonRequest<any[]>({
+      path: '/containers/json',
+      method: 'GET'
+    });
     const tasks = (containers as any[]).map(async (c) => {
       const id = c.Id as string;
       const name = (c.Names?.[0] || '').replace(/^\//, '') as string;
       try {
-        const stats = await requestDocker(`/containers/${id}/stats?stream=false`);
+        const stats = await dockerJsonRequest<any>({
+          path: `/containers/${id}/stats?stream=false`,
+          method: 'GET'
+        });
         const cpu = computeCpuPercent(stats);
         const { memPercent, memMB } = computeMem(stats);
         return { id, name, cpuPercent: cpu, memPercent, memMB } as ContainerStat;

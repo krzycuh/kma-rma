@@ -1,11 +1,13 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { SuccessObject } from '../utils/ControllerResult';
+import { SuccessObject, Error as ErrorResult } from '../utils/ControllerResult';
 import { MetricsService } from '../metrics/service';
 import { ENABLE_DOCKER_STATS, LOGS_MAX_TAIL } from '../config';
 import { getContainersStats } from '../metrics/dockerStats';
 import { getQueryParam } from '../utils/urlParser';
 import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS } from '../config';
 import { streamContainerLogsToSSE } from '../metrics/dockerLogs';
+import { DockerError } from '../docker/client';
+import { pullImageAndRecreateIfNeeded } from '../docker/imageManager';
 
 const metricsService = new MetricsService();
 metricsService.start();
@@ -53,41 +55,70 @@ export async function handleApiRoutes(
     return true;
   }
 
-  if (req.method === 'GET' && pathname === '/api/containers') {
-    if (!ENABLE_DOCKER_STATS) {
-      const result = new SuccessObject([]);
+    if (req.method === 'GET' && pathname === '/api/containers') {
+      if (!ENABLE_DOCKER_STATS) {
+        const result = new SuccessObject([]);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+        return true;
+      }
+      const list = await getContainersStats();
+      const result = new SuccessObject(list);
       res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
       res.end(result.getBody());
       return true;
     }
-    const list = await getContainersStats();
-    const result = new SuccessObject(list);
-    res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
-    res.end(result.getBody());
-    return true;
-  }
 
-  if (req.method === 'GET' && pathname.startsWith('/api/containers/') && pathname.endsWith('/logs')) {
-    if (!ENABLE_DOCKER_STATS) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Docker stats disabled');
+    if (req.method === 'GET' && pathname.startsWith('/api/containers/') && pathname.endsWith('/logs')) {
+      if (!ENABLE_DOCKER_STATS) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Docker stats disabled');
+        return true;
+      }
+      const parts = pathname.split('/');
+      const id = parts[3];
+      if (!id) {
+        res.writeHead(400, { 'Content-Type': 'text/plain' });
+        res.end('Container id required');
+        return true;
+      }
+      const tailStr = getQueryParam(req.url || '', 'tail');
+      const followStr = getQueryParam(req.url || '', 'follow');
+      const tailReq = tailStr ? parseInt(tailStr, 10) : 200;
+      const tail = Number.isFinite(tailReq) ? Math.min(Math.max(tailReq, 1), LOGS_MAX_TAIL) : 200;
+      const follow = followStr === 'true' || followStr === '1';
+      streamContainerLogsToSSE(res, id, tail, follow);
       return true;
     }
-    const parts = pathname.split('/');
-    const id = parts[3];
-    if (!id) {
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end('Container id required');
+
+    if (req.method === 'POST' && pathname.startsWith('/api/containers/') && pathname.endsWith('/update')) {
+      if (!ENABLE_DOCKER_STATS) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Docker stats disabled');
+        return true;
+      }
+      const parts = pathname.split('/');
+      const id = parts[3];
+      if (!id) {
+        const result = new ErrorResult('Container id required', 400);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+        return true;
+      }
+      try {
+        const outcome = await pullImageAndRecreateIfNeeded(id);
+        const result = new SuccessObject(outcome);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+      } catch (err) {
+        const status = err instanceof DockerError && err.statusCode ? err.statusCode : 500;
+        const message = err instanceof Error ? err.message : 'Unknown Docker error';
+        const result = new ErrorResult(message, status);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+      }
       return true;
     }
-    const tailStr = getQueryParam(req.url || '', 'tail');
-    const followStr = getQueryParam(req.url || '', 'follow');
-    const tailReq = tailStr ? parseInt(tailStr, 10) : 200;
-    const tail = Number.isFinite(tailReq) ? Math.min(Math.max(tailReq, 1), LOGS_MAX_TAIL) : 200;
-    const follow = followStr === 'true' || followStr === '1';
-    streamContainerLogsToSSE(res, id, tail, follow);
-    return true;
-  }
 
   return false;
 }
