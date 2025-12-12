@@ -39,29 +39,32 @@ Based on `kms-poker-stats` repository workflows:
 
 | Aspect | kms-poker-stats | kma-rma |
 |--------|----------------|---------|
-| Architecture | Separate backend/frontend Dockerfiles | Monorepo with single Dockerfile |
+| Architecture | Separate backend/frontend Dockerfiles | **Monorepo with single Dockerfile** |
 | Backend | Spring Boot (Java/Kotlin) | Node.js (TypeScript) |
 | Frontend | Separate service | Built into backend container |
 | Package Manager | Gradle (backend), npm (frontend) | pnpm (monorepo) |
 | Testing | JUnit, Jest | Not yet implemented |
 | Linting | ktlint, ESLint | Not yet configured |
+| **CI Workflows** | **Split: backend-ci.yml + frontend-ci.yml** | **🎯 Unified: Single ci.yml** |
 
 ### Required Workflows
 
-1. **CI Workflow** (`ci.yml`)
+**IMPORTANT:** Unlike kms-poker-stats which has separate CI workflows for backend and frontend, **kma-rma uses a SINGLE unified workflow** since both are built together in one Dockerfile.
+
+#### 1. **Unified CI Workflow** (`ci.yml`)
+   - **Single workflow for entire monorepo**
    - Run on every push/PR
    - Install dependencies (pnpm)
-   - Lint backend and frontend (need to add linters first)
-   - Run tests (need to add tests first)
-   - Type check TypeScript
-   - Build both projects
-   - Validate Dockerfile builds successfully
+   - Lint backend AND frontend together
+   - Type check both TypeScript projects
+   - Build both projects in sequence
+   - Validate Docker build (which builds both together)
 
-2. **Release/Deploy Workflow** (`deploy.yml`)
+#### 2. **Deploy Workflow** (`deploy.yml`)
    - Trigger on releases or manual dispatch
-   - Build multi-platform Docker image
+   - Build single multi-platform Docker image (contains both backend + frontend)
    - Push to GHCR with version tags
-   - Create deployment artifacts
+   - Post-deployment tasks
 
 ---
 
@@ -486,21 +489,27 @@ After implementation:
 kma-rma/
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml              # NEW: Continuous Integration
-│       └── deploy.yml          # NEW: Deploy to GHCR
+│       ├── ci.yml              # NEW: Unified CI (backend + frontend together)
+│       └── deploy.yml          # NEW: Deploy to GHCR (single image)
+│
 ├── backend/
 │   ├── .eslintrc.json          # NEW: Backend linting config
 │   ├── package.json            # UPDATE: Add lint script
 │   └── src/...
+│
 ├── frontend/
 │   ├── .eslintrc.json          # UPDATE: Verify frontend linting
 │   ├── package.json            # VERIFY: lint script exists
 │   └── src/...
+│
 ├── Dockerfile                  # UPDATE: Add build args and labels
+│                               #         (Builds BOTH backend + frontend)
 └── docs/
     └── planning/
         └── 03-cicd-implementation.md
 ```
+
+**Total: 2 workflow files** (not split by backend/frontend)
 
 ---
 
