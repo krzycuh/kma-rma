@@ -1,5 +1,16 @@
 # Stage 1: Builder
 FROM node:18-alpine AS builder
+
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+LABEL org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.revision=$VCS_REF \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.title="KMA RMA" \
+      org.opencontainers.image.description="Raspberry Pi Management Application"
+
 WORKDIR /app
 
 RUN corepack enable
@@ -18,6 +29,15 @@ RUN pnpm --filter backend build
 
 # Stage 2: Runtime
 FROM node:18-alpine
+
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+LABEL org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.revision=$VCS_REF \
+      org.opencontainers.image.version=$VERSION
+
 WORKDIR /app
 
 RUN corepack enable
