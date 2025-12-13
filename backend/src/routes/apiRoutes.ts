@@ -8,9 +8,16 @@ import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS } from '../config';
 import { streamContainerLogsToSSE } from '../metrics/dockerLogs';
 import { DockerError } from '../docker/client';
 import { pullImageAndRecreateIfNeeded } from '../docker/imageManager';
+import { streamManager } from '../sse/streamManager';
+import { startContainerBroadcast } from '../sse/containerBroadcaster';
+import { SSEEventType } from '../sse/events';
 
 const metricsService = new MetricsService();
 metricsService.start();
+
+// Start SSE infrastructure
+streamManager.start();
+startContainerBroadcast(5000);
 
 export async function handleApiRoutes(
   req: IncomingMessage,
@@ -18,6 +25,35 @@ export async function handleApiRoutes(
   pathname: string,
   user: string
 ): Promise<boolean> {
+  // SSE stream endpoint - unified real-time data
+  if (req.method === 'GET' && pathname === '/api/stream') {
+    streamManager.addClient(user, res);
+
+    // Send initial state
+    const latest = metricsService.getLatest();
+    if (latest) {
+      streamManager.broadcast({
+        type: SSEEventType.METRICS,
+        data: latest
+      });
+    }
+
+    if (ENABLE_DOCKER_STATS) {
+      try {
+        const containers = await getContainersStats();
+        streamManager.broadcast({
+          type: SSEEventType.CONTAINERS,
+          data: containers
+        });
+      } catch {
+        // Ignore initial container fetch errors
+      }
+    }
+
+    // Connection stays open - handled by streamManager
+    return true;
+  }
+
   if (req.method === 'GET' && pathname === '/api/user') {
     const result = new SuccessObject({ name: user });
     res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
@@ -37,14 +73,7 @@ export async function handleApiRoutes(
     return true;
   }
 
-  if (req.method === 'GET' && pathname === '/api/metrics') {
-    const latest = metricsService.getLatest();
-    const result = new SuccessObject(latest ?? { ts: Date.now(), note: 'no data yet' });
-    res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
-    res.end(result.getBody());
-    return true;
-  }
-
+  // Keep /api/history for initial data load
   if (req.method === 'GET' && pathname === '/api/history') {
     const limitStr = getQueryParam(req.url || '', 'limit');
     const limit = limitStr ? Number.parseInt(limitStr, 10) : undefined;
@@ -55,21 +84,8 @@ export async function handleApiRoutes(
     return true;
   }
 
-    if (req.method === 'GET' && pathname === '/api/containers') {
-      if (!ENABLE_DOCKER_STATS) {
-        const result = new SuccessObject([]);
-        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
-        res.end(result.getBody());
-        return true;
-      }
-      const list = await getContainersStats();
-      const result = new SuccessObject(list);
-      res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
-      res.end(result.getBody());
-      return true;
-    }
-
-    if (req.method === 'GET' && pathname.startsWith('/api/containers/') && pathname.endsWith('/logs')) {
+  // Container logs streaming (SSE)
+  if (req.method === 'GET' && pathname.startsWith('/api/containers/') && pathname.endsWith('/logs')) {
       if (!ENABLE_DOCKER_STATS) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Docker stats disabled');

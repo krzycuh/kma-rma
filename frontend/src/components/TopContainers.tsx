@@ -31,21 +31,25 @@ export default function TopContainers({ token }: { token: string }) {
   const [updates, setUpdates] = useState<Record<string, UpdateState>>({});
 
   useEffect(() => {
-    let mounted = true;
-    const fetchStats = async () => {
+    // Connect to SSE stream for container updates
+    const eventSource = new EventSource(`/api/stream?token=${token}`);
+
+    eventSource.addEventListener('containers', (event) => {
       try {
-        const res = await fetch(`/api/containers?token=${token}`);
-        if (res.ok) {
-          const data = (await res.json()) as Container[];
-          if (mounted) setList(data);
-        }
+        const data = JSON.parse(event.data) as Container[];
+        setList(data);
       } catch {
-        // ignore
+        // Ignore parse errors
       }
+    });
+
+    eventSource.addEventListener('error', () => {
+      // EventSource will automatically attempt to reconnect
+    });
+
+    return () => {
+      eventSource.close();
     };
-    void fetchStats();
-    const id = setInterval(fetchStats, 5000);
-    return () => { mounted = false; clearInterval(id); };
   }, [token]);
 
   const sorted = useMemo(() => {

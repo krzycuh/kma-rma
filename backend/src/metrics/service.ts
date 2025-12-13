@@ -1,5 +1,7 @@
 import { LocalMetricsCollector, MetricsSnapshot } from './collector';
 import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS } from '../config';
+import { streamManager } from '../sse/streamManager';
+import { SSEEventType } from '../sse/events';
 
 export class MetricsService {
   private buffer: MetricsSnapshot[] = [];
@@ -35,6 +37,12 @@ export class MetricsService {
     if (this.buffer.length > this.maxHistory) {
       this.buffer.splice(0, this.buffer.length - this.maxHistory);
     }
+
+    // Broadcast to SSE clients
+    streamManager.broadcast({
+      type: SSEEventType.METRICS,
+      data: sample
+    });
   }
 }
 
