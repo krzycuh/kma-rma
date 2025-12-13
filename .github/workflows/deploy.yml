@@ -26,6 +26,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set build date
+        id: build_date
+        run: echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -50,8 +63,10 @@ jobs:
             type=ref,event=branch
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.version.outputs.VERSION }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -63,12 +78,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            BUILD_DATE=${{ steps.meta.outputs.created }}
+            BUILD_DATE=${{ steps.build_date.outputs.BUILD_DATE }}
             VCS_REF=${{ github.sha }}
-            VERSION=${{ github.ref_name }}
+            VERSION=${{ steps.version.outputs.VERSION }}
 
       - name: Image digest
-        run: echo ${{ steps.meta.outputs.digest }}
+        run: echo ${{ steps.build.outputs.digest }}
 
   post-deploy:
     name: Post-Deployment
@@ -78,5 +93,5 @@ jobs:
     steps:
       - name: Deployment notification
         run: |
-          echo "✅ Deployed version: ${{ github.ref_name }}"
+          echo "✅ Deployment completed successfully"
           echo "📦 Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
