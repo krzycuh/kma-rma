@@ -6,9 +6,9 @@ import { ServerResponse } from 'http';
  */
 export function streamContainerLogsToSSE(
   res: ServerResponse,
-  containerId: string,
-  tail: number,
-  follow: boolean
+  _containerId: string,
+  _tail: number,
+  _follow: boolean
 ): void {
   res.writeHead(501, { 'Content-Type': 'text/plain' });
   res.end('Container logs streaming not yet implemented');
