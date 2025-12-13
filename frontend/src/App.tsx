@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, TextField, Typography } from '@mui/material';
 import Sparkline from './components/Sparkline';
 import TopContainers from './components/TopContainers';
-import { SSEProvider, useSSE } from './context/SSEContext';
+import { SSEProvider, useSSE, type MetricsSnapshot } from './context/SSEContext';
 
 function Dashboard() {
   const { latestMetrics } = useSSE();
-  const [samples, setSamples] = useState<any[]>([]);
+  const [samples, setSamples] = useState<MetricsSnapshot[]>([]);
 
   // Add latest metrics to samples history
   useEffect(() => {
