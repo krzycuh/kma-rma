@@ -37,19 +37,44 @@ function App() {
 
   useEffect(() => {
     if (!user || !token) return;
-    void loadData();
-    const id = setInterval(() => void loadData(), 3001);
-    return () => clearInterval(id);
+
+    // Load initial history
+    void loadInitialHistory();
+
+    // Connect to SSE stream for real-time updates
+    const eventSource = new EventSource(`/api/stream?token=${token}`);
+
+    eventSource.addEventListener('metrics', (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setSnapshot(data);
+
+        // Add to samples history (keep last 60)
+        setSamples((prev) => {
+          const next = [...prev, data];
+          if (next.length > 60) {
+            next.splice(0, next.length - 60);
+          }
+          return next;
+        });
+      } catch {
+        // Ignore parse errors
+      }
+    });
+
+    eventSource.addEventListener('error', () => {
+      // EventSource will automatically attempt to reconnect
+    });
+
+    return () => {
+      eventSource.close();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, token]);
 
-  const loadData = async () => {
+  const loadInitialHistory = async () => {
     try {
-      const [sRes, hRes] = await Promise.all([
-        fetch(`/api/metrics?token=${token}`),
-        fetch(`/api/history?limit=60&token=${token}`)
-      ]);
-      if (sRes.ok) setSnapshot(await sRes.json());
+      const hRes = await fetch(`/api/history?limit=60&token=${token}`);
       if (hRes.ok) setSamples(await hRes.json());
     } catch {
       // ignore fetch errors in UI, user stays signed in
