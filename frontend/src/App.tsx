@@ -88,6 +88,23 @@ function App() {
     return total > 0 ? (used / total) * 100 : 0;
   }), [samples]);
 
+  const downloadSeries = useMemo(() =>
+    samples.map(s => (s.network?.totalRxBytesPerSec ?? 0) / 1024 / 1024)
+  , [samples]);
+
+  const uploadSeries = useMemo(() =>
+    samples.map(s => (s.network?.totalTxBytesPerSec ?? 0) / 1024 / 1024)
+  , [samples]);
+
+  const formatBytesPerSec = (bytesPerSec: number | null | undefined): string => {
+    if (bytesPerSec == null) return '—';
+
+    const abs = Math.abs(bytesPerSec);
+    if (abs < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+    if (abs < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    return `${(bytesPerSec / 1024 / 1024).toFixed(2)} MB/s`;
+  };
+
   if (loading) {
     return (
       <Box className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
@@ -120,7 +137,7 @@ function App() {
           <Typography variant="body2" className="text-gray-500">Zalogowany jako {user}</Typography>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
           <div className="h-full">
           <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
             <CardContent className="h-full flex flex-col gap-2">
@@ -148,7 +165,26 @@ function App() {
             </CardContent>
           </Card>
           </div>
-          <div className="h-full md:col-span-2">
+          <div className="h-full">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">Network</Typography>
+              <Typography variant="h6" className="text-blue-600">
+                ↓ {formatBytesPerSec(snapshot?.network?.totalRxBytesPerSec)}
+              </Typography>
+              <Typography variant="h6" className="text-green-600">
+                ↑ {formatBytesPerSec(snapshot?.network?.totalTxBytesPerSec)}
+              </Typography>
+              <div className="mt-auto space-y-1">
+                <div className="text-xs text-gray-500">Download</div>
+                <Sparkline values={downloadSeries} />
+                <div className="text-xs text-gray-500">Upload</div>
+                <Sparkline values={uploadSeries} />
+              </div>
+            </CardContent>
+          </Card>
+          </div>
+          <div className="h-full md:col-span-3">
           <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
             <CardContent className="h-full flex flex-col gap-2">
               <Typography variant="subtitle2">Containers</Typography>
