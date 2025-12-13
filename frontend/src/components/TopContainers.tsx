@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import LogViewer from './LogViewer';
+import { useSSE } from '../context/SSEContext';
 
 type Container = {
   id: string;
@@ -24,39 +25,17 @@ type UpdateState = {
   logs?: string[];
 };
 
-export default function TopContainers({ token }: { token: string }) {
-  const [list, setList] = useState<Container[]>([]);
+export default function TopContainers() {
+  const { containers, token } = useSSE();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tail, setTail] = useState<number>(200);
   const [updates, setUpdates] = useState<Record<string, UpdateState>>({});
 
-  useEffect(() => {
-    // Connect to SSE stream for container updates
-    const eventSource = new EventSource(`/api/stream?token=${token}`);
-
-    eventSource.addEventListener('containers', (event) => {
-      try {
-        const data = JSON.parse(event.data) as Container[];
-        setList(data);
-      } catch {
-        // Ignore parse errors
-      }
-    });
-
-    eventSource.addEventListener('error', () => {
-      // EventSource will automatically attempt to reconnect
-    });
-
-    return () => {
-      eventSource.close();
-    };
-  }, [token]);
-
   const sorted = useMemo(() => {
-    const copy = [...list];
+    const copy = [...containers];
     copy.sort((a, b) => a.name.localeCompare(b.name));
     return copy;
-  }, [list]);
+  }, [containers]);
 
   const triggerUpdate = useCallback(async (container: Container) => {
     if (!token) return;
@@ -89,16 +68,6 @@ export default function TopContainers({ token }: { token: string }) {
           logs: payload?.logs?.slice(0, 5)
         }
       }));
-      // Refresh the container list to reflect potential changes
-      try {
-        const refreshed = await fetch(`/api/containers?token=${token}`);
-        if (refreshed.ok) {
-          const refreshedList = (await refreshed.json()) as Container[];
-          setList(refreshedList);
-        }
-      } catch {
-        // ignore refresh errors
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected error while updating container';
       setUpdates(prev => ({
@@ -106,7 +75,7 @@ export default function TopContainers({ token }: { token: string }) {
         [container.id]: { state: 'error', message }
       }));
     }
-  }, [token, setList]);
+  }, [token]);
 
   return (
     <div className="text-sm">
@@ -182,5 +151,3 @@ export default function TopContainers({ token }: { token: string }) {
     </div>
   );
 }
-
-

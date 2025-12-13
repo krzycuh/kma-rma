@@ -2,84 +2,24 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Box, Button, Card, CardContent, TextField, Typography } from '@mui/material';
 import Sparkline from './components/Sparkline';
 import TopContainers from './components/TopContainers';
+import { SSEProvider, useSSE } from './context/SSEContext';
 
-function App() {
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [snapshot, setSnapshot] = useState<any | null>(null);
+function Dashboard() {
+  const { latestMetrics } = useSSE();
   const [samples, setSamples] = useState<any[]>([]);
 
+  // Add latest metrics to samples history
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    setToken(urlToken);
-    if (urlToken) {
-      void checkAuth(urlToken);
-    }
-  }, []);
+    if (!latestMetrics) return;
 
-  const checkAuth = async (t: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/user?token=${t}`);
-      if (!res.ok) throw new Error('Unauthorized');
-      const data = await res.json();
-      setUser(data.name ?? 'User');
-    } catch {
-      setError('Authorization failed. Check token.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!user || !token) return;
-
-    // Load initial history
-    void loadInitialHistory();
-
-    // Connect to SSE stream for real-time updates
-    const eventSource = new EventSource(`/api/stream?token=${token}`);
-
-    eventSource.addEventListener('metrics', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setSnapshot(data);
-
-        // Add to samples history (keep last 60)
-        setSamples((prev) => {
-          const next = [...prev, data];
-          if (next.length > 60) {
-            next.splice(0, next.length - 60);
-          }
-          return next;
-        });
-      } catch {
-        // Ignore parse errors
+    setSamples((prev) => {
+      const next = [...prev, latestMetrics];
+      if (next.length > 60) {
+        next.splice(0, next.length - 60);
       }
+      return next;
     });
-
-    eventSource.addEventListener('error', () => {
-      // EventSource will automatically attempt to reconnect
-    });
-
-    return () => {
-      eventSource.close();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, token]);
-
-  const loadInitialHistory = async () => {
-    try {
-      const hRes = await fetch(`/api/history?limit=60&token=${token}`);
-      if (hRes.ok) setSamples(await hRes.json());
-    } catch {
-      // ignore fetch errors in UI, user stays signed in
-    }
-  };
+  }, [latestMetrics]);
 
   const cpuSeries = useMemo(() => samples.map(p => Math.max(0, Math.min(100, p.cpu?.usagePercent ?? 0))), [samples]);
   const ramSeries = useMemo(() => samples.map(p => {
@@ -103,6 +43,104 @@ function App() {
     if (abs < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
     if (abs < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
     return `${(bytesPerSec / 1024 / 1024).toFixed(2)} MB/s`;
+  };
+
+  return (
+    <Box className="min-h-screen p-6 bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="text-center space-y-2">
+          <Typography variant="h3" className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">Raspberry Pi Manager</Typography>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+          <div className="h-full">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">CPU</Typography>
+              <Typography variant="h5">
+                {latestMetrics?.cpu?.usagePercent != null ? `${latestMetrics.cpu.usagePercent.toFixed(1)}%` : '—'}
+                <span className="text-sm text-gray-500 ml-3">{latestMetrics?.cpu?.temperatureC != null ? `${latestMetrics.cpu.temperatureC.toFixed(1)}°C` : ''}</span>
+              </Typography>
+              <div className="mt-auto">
+                <Sparkline values={cpuSeries} />
+              </div>
+            </CardContent>
+          </Card>
+          </div>
+          <div className="h-full">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">RAM Used</Typography>
+              <Typography variant="h5">
+                {latestMetrics?.memory ? `${(latestMetrics.memory.usedKB/1024).toFixed(0)} MB / ${(latestMetrics.memory.memTotalKB/1024).toFixed(0)} MB` : '—'}
+              </Typography>
+              <div className="mt-auto">
+                <Sparkline values={ramSeries} />
+              </div>
+            </CardContent>
+          </Card>
+          </div>
+          <div className="h-full">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">Network</Typography>
+              <Typography variant="h6" className="text-blue-600">
+                ↓ {formatBytesPerSec(latestMetrics?.network?.totalRxBytesPerSec)}
+              </Typography>
+              <Typography variant="h6" className="text-green-600">
+                ↑ {formatBytesPerSec(latestMetrics?.network?.totalTxBytesPerSec)}
+              </Typography>
+              <div className="mt-auto space-y-1">
+                <div className="text-xs text-gray-500">Download</div>
+                <Sparkline values={downloadSeries} />
+                <div className="text-xs text-gray-500">Upload</div>
+                <Sparkline values={uploadSeries} />
+              </div>
+            </CardContent>
+          </Card>
+          </div>
+          <div className="h-full md:col-span-3">
+          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+            <CardContent className="h-full flex flex-col gap-2">
+              <Typography variant="subtitle2">Containers</Typography>
+              <TopContainers />
+            </CardContent>
+          </Card>
+          </div>
+        </div>
+      </div>
+    </Box>
+  );
+}
+
+function App() {
+  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    setToken(urlToken);
+    if (urlToken) {
+      void checkAuth(urlToken);
+    }
+  }, []);
+
+  const checkAuth = async (t: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/user?token=${t}`);
+      if (!res.ok) throw new Error('Unauthorized');
+      const data = await res.json();
+      setUser(data.name ?? 'User');
+    } catch {
+      setError('Authorization failed. Check token.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -130,74 +168,10 @@ function App() {
   }
 
   return (
-    <Box className="min-h-screen p-6 bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <Typography variant="h3" className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">Raspberry Pi Manager</Typography>
-          <Typography variant="body2" className="text-gray-500">Zalogowany jako {user}</Typography>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-          <div className="h-full">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">CPU</Typography>
-              <Typography variant="h5">
-                {snapshot?.cpu?.usagePercent != null ? `${snapshot.cpu.usagePercent.toFixed(1)}%` : '—'}
-                <span className="text-sm text-gray-500 ml-3">{snapshot?.cpu?.temperatureC != null ? `${snapshot.cpu.temperatureC.toFixed(1)}°C` : ''}</span>
-              </Typography>
-              <div className="mt-auto">
-                <Sparkline values={cpuSeries} />
-              </div>
-            </CardContent>
-          </Card>
-          </div>
-          <div className="h-full">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">RAM Used</Typography>
-              <Typography variant="h5">
-                {snapshot?.memory ? `${(snapshot.memory.usedKB/1024).toFixed(0)} MB / ${(snapshot.memory.memTotalKB/1024).toFixed(0)} MB` : '—'}
-              </Typography>
-              <div className="mt-auto">
-                <Sparkline values={ramSeries} />
-              </div>
-            </CardContent>
-          </Card>
-          </div>
-          <div className="h-full">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">Network</Typography>
-              <Typography variant="h6" className="text-blue-600">
-                ↓ {formatBytesPerSec(snapshot?.network?.totalRxBytesPerSec)}
-              </Typography>
-              <Typography variant="h6" className="text-green-600">
-                ↑ {formatBytesPerSec(snapshot?.network?.totalTxBytesPerSec)}
-              </Typography>
-              <div className="mt-auto space-y-1">
-                <div className="text-xs text-gray-500">Download</div>
-                <Sparkline values={downloadSeries} />
-                <div className="text-xs text-gray-500">Upload</div>
-                <Sparkline values={uploadSeries} />
-              </div>
-            </CardContent>
-          </Card>
-          </div>
-          <div className="h-full md:col-span-3">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">Containers</Typography>
-              <TopContainers token={token!} />
-            </CardContent>
-          </Card>
-          </div>
-        </div>
-      </div>
-    </Box>
+    <SSEProvider token={token}>
+      <Dashboard />
+    </SSEProvider>
   );
 }
 
 export default App;
-
-
