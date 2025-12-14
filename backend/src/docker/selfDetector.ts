@@ -28,7 +28,7 @@ function getSelfContainerIdFromCgroup(): string | null {
     if (match2) {
       return match2[1];
     }
-  } catch (err) {
+  } catch {
     // Not running in Docker or /proc/self/cgroup not accessible
     return null;
   }

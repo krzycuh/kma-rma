@@ -10,7 +10,6 @@ import { spawn } from 'child_process';
 import { writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { isSelfContainer } from './selfDetector';
 
 type ImageInspect = {
   Id: string;
