@@ -5,8 +5,27 @@ import TopContainers from './components/TopContainers';
 import { SSEProvider, useSSE, type MetricsSnapshot } from './context/SSEContext';
 
 function Dashboard() {
-  const { latestMetrics } = useSSE();
+  const { latestMetrics, token } = useSSE();
   const [samples, setSamples] = useState<MetricsSnapshot[]>([]);
+
+  // Fetch initial history on mount
+  useEffect(() => {
+    if (!token) return;
+
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch(`/api/history?token=${token}&limit=60`);
+        if (response.ok) {
+          const history = await response.json() as MetricsSnapshot[];
+          setSamples(history);
+        }
+      } catch (error) {
+        console.error('Failed to fetch metrics history:', error);
+      }
+    };
+
+    void fetchHistory();
+  }, [token]);
 
   // Add latest metrics to samples history
   useEffect(() => {
