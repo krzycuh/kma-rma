@@ -7,8 +7,11 @@ RMA is a lightweight app to monitor Raspberry Pi devices. MVP focuses on live me
 - Show near real-time metrics per Raspberry Pi:
   - CPU: usage %, temperature
   - RAM: total/used/free/available
-  - Network: interface traffic, RX/TX rates
-  - System: uptime, load average
+  - Network: interface traffic, RX/TX throughput
+- Docker container monitoring (when enabled):
+  - Container list with CPU/RAM usage
+  - Container logs streaming
+  - Container pull image & restart
 - Monitor only the host Raspberry Pi (single-device scope)
 - Simple web dashboard with auto-refresh/streaming updates
 - Historical metrics tracking with configurable buffer size
@@ -20,7 +23,6 @@ RMA tracks the following system metrics:
 **CPU Metrics:**
 - Usage percentage
 - Temperature (°C)
-- Load average (1m, 5m, 15m)
 
 **Memory Metrics:**
 - Total RAM
@@ -31,17 +33,34 @@ RMA tracks the following system metrics:
 
 **Network Metrics:**
 - Per-interface statistics (RX/TX bytes)
-- Total RX/TX bytes across all interfaces
-- RX/TX throughput (bytes per second)
-- Packet counts and error rates
-
-**System Information:**
-- Uptime
-- Hostname
-- OS information
-- Kernel version
+- Total network throughput (RX/TX bytes per second)
 
 All metrics are collected at a configurable interval (default: 2 seconds) and stored in an in-memory history buffer (default: 300 samples).
+
+### Docker Container Monitoring
+
+When Docker socket access is available, RMA provides additional container monitoring features:
+
+**Container Statistics:**
+- Real-time list of all running containers
+- Per-container CPU usage percentage
+- Per-container memory usage (percentage and MB)
+- Auto-refresh via Server-Sent Events (SSE)
+
+**Container Logs:**
+- Stream container logs in real-time
+- Configurable tail size (default: 200 lines, max: 1000)
+- Follow mode for continuous log streaming
+
+**Container Management:**
+- Pull latest image and restart container
+- Intelligent self-restart detection (uses detached mode when restarting RMA's own container)
+- Update status reporting (image pulled, container recreated)
+
+**Configuration:**
+- Enable via `ENABLE_DOCKER_STATS=true` environment variable
+- Requires Docker socket access (`/var/run/docker.sock`)
+- Container broadcast interval: 5 seconds
 
 ### Prerequisites
 - Node 18+
@@ -73,6 +92,12 @@ METRICS_POLL_INTERVAL_MS=2000
 
 # Optional: in-memory history buffer size (default 300)
 METRICS_HISTORY_SIZE=300
+
+# Optional: enable Docker container monitoring (default false)
+ENABLE_DOCKER_STATS=true
+
+# Optional: max lines for container logs tail (default 1000)
+LOGS_MAX_TAIL=1000
 
 # Optional: working dir hint for serving built frontend (normally not needed locally)
 # NODE_CWD=/app/backend
@@ -172,6 +197,38 @@ Open: `http://localhost:3001/?token=devtoken`
 ```bash
 docker compose up -d
 ```
+
+### Enabling Docker Container Monitoring
+
+To monitor Docker containers from within RMA, mount the Docker socket and enable the feature:
+
+```bash
+docker run --rm -p 3001:3001 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e TOKENS=devtoken->Developer \
+  -e ENABLE_DOCKER_STATS=true \
+  ghcr.io/krzycuh/kma-rma:latest
+```
+
+Or in `docker-compose.yml`:
+
+```yaml
+services:
+  rma:
+    image: ghcr.io/krzycuh/kma-rma:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - TOKENS=devtoken->Developer
+      - ENABLE_DOCKER_STATS=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+This enables:
+- Container list with CPU/RAM usage
+- Real-time container logs streaming
+- Container image pull and restart functionality
 
 ### Raspberry Pi prerequisites and container mounts
 
