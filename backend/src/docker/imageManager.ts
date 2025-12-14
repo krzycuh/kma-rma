@@ -6,6 +6,10 @@ import {
   DockerHostConfig,
   DockerNetworkSettings
 } from './types';
+import { spawn } from 'child_process';
+import { writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 type ImageInspect = {
   Id: string;
@@ -33,6 +37,17 @@ export type ContainerUpdateResult = {
   newContainerId?: string;
   message: string;
   logs: string[];
+};
+
+export type DetachedRestartResult = {
+  containerId: string;
+  containerName: string;
+  image: string;
+  detached: true;
+  scheduled: true;
+  message: string;
+  configFile: string;
+  logDir: string;
 };
 
 function parseImageReference(image: string): ImageReferenceParts {
@@ -211,6 +226,71 @@ async function startContainer(id: string): Promise<void> {
     path: `/containers/${encodeURIComponent(id)}/start`,
     method: 'POST'
   });
+}
+
+/**
+ * Pull and restart a container using detached execution
+ * This allows restarting the container that hosts this backend process
+ */
+export async function pullImageAndRecreateDetached(
+  containerIdOrName: string,
+  waitSeconds = 2
+): Promise<DetachedRestartResult> {
+  const inspect = await inspectContainer(containerIdOrName);
+  const containerName = (inspect.Name ?? '').replace(/^\//, '') || inspect.Id;
+  const imageRef = inspect.Config?.Image ?? inspect.Image;
+
+  if (!imageRef) {
+    throw new DockerError(`Container ${containerIdOrName} does not have an image reference`);
+  }
+
+  // Create config file for detached script
+  const timestamp = Date.now();
+  const configFileName = `restart-config-${containerName}-${timestamp}.json`;
+  const configPath = join(tmpdir(), configFileName);
+
+  const config = {
+    containerName,
+    imageRef,
+    inspect,
+    waitSeconds,
+    timestamp
+  };
+
+  // Write config to temporary file
+  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+
+  // Determine script path
+  // In production: /app/backend/scripts/restart-container.js
+  // In development: ./backend/scripts/restart-container.js
+  const scriptPath = join(__dirname, '..', '..', 'scripts', 'restart-container.js');
+
+  // Spawn detached process
+  const child = spawn('node', [scriptPath, configPath], {
+    detached: true,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      DOCKER_SOCK_PATH: process.env.DOCKER_SOCK_PATH || '/var/run/docker.sock',
+      RESTART_LOG_DIR: process.env.RESTART_LOG_DIR || '/tmp/container-restart-logs'
+    }
+  });
+
+  // Unref to allow parent to exit
+  child.unref();
+
+  const logDir = process.env.RESTART_LOG_DIR || '/tmp/container-restart-logs';
+
+  return {
+    containerId: inspect.Id,
+    containerName,
+    image: imageRef,
+    detached: true,
+    scheduled: true,
+    message: `Container restart scheduled in detached mode. The container will be restarted in ${waitSeconds} seconds. Check logs in ${logDir}/${containerName}-*.log`,
+    configFile: configPath,
+    logDir
+  };
 }
 
 export async function pullImageAndRecreateIfNeeded(containerIdOrName: string): Promise<ContainerUpdateResult> {
