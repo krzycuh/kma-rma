@@ -1,13 +1,13 @@
 ## RMA (RaspberryPi Management App)
 
 ### Overview
-RMA is a lightweight app to monitor Raspberry Pi devices. MVP focuses on live metrics for CPU, RAM, and basic GPU information (temperature/memory). Future iterations may add disk, network, processes, and alerting.
+RMA is a lightweight app to monitor Raspberry Pi devices. MVP focuses on live metrics for CPU, RAM, and network traffic. Future iterations may add disk, processes, and alerting.
 
 ### MVP Goals (v0.1)
 - Show near real-time metrics per Raspberry Pi:
-  - CPU: usage %, temperature, clock speed
+  - CPU: usage %, temperature
   - RAM: total/used/free/available
-  - GPU: temperature, memory allocation
+  - Network: interface traffic, RX/TX rates
   - System: uptime, load average
 - Monitor only the host Raspberry Pi (single-device scope)
 - Simple web dashboard with auto-refresh/streaming updates
@@ -18,9 +18,8 @@ RMA is a lightweight app to monitor Raspberry Pi devices. MVP focuses on live me
 RMA tracks the following system metrics:
 
 **CPU Metrics:**
-- Usage percentage (overall and per-core)
+- Usage percentage
 - Temperature (°C)
-- Clock frequency (MHz)
 - Load average (1m, 5m, 15m)
 
 **Memory Metrics:**
@@ -30,9 +29,11 @@ RMA tracks the following system metrics:
 - Available RAM
 - Usage percentage
 
-**GPU Metrics:**
-- Temperature (°C)
-- Memory allocation (MB)
+**Network Metrics:**
+- Per-interface statistics (RX/TX bytes)
+- Total RX/TX bytes across all interfaces
+- RX/TX throughput (bytes per second)
+- Packet counts and error rates
 
 **System Information:**
 - Uptime
@@ -174,7 +175,7 @@ docker compose up -d
 
 ### Raspberry Pi prerequisites and container mounts
 
-`vcgencmd` and thermal/clock readings require Raspberry Pi firmware tools and access to system interfaces:
+Thermal readings require access to system interfaces and optionally Raspberry Pi firmware tools:
 
 - Ensure `vcgencmd` is available on the host:
   - On Raspberry Pi OS, install: `sudo apt update && sudo apt install -y libraspberrypi-bin`
@@ -194,8 +195,8 @@ docker compose up -d
       kma-rma:latest
 
 Notes:
-- Without these mounts/capabilities, CPU temp/clock and GPU memory may be null.
-- Some models expose a single thermal sensor; GPU temp may mirror CPU temp.
+- Without these mounts/capabilities, CPU temperature readings may be null.
+- Network statistics are read from `/proc/net/dev` and should work without special privileges.
 
 ## ARM64 image export and Raspberry Pi deploy (optional)
 Helper scripts expect fish shell and an SSH-accessible target.
