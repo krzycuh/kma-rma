@@ -5,12 +5,42 @@ RMA is a lightweight app to monitor Raspberry Pi devices. MVP focuses on live me
 
 ### MVP Goals (v0.1)
 - Show near real-time metrics per Raspberry Pi:
-  - CPU: usage %, temperature, clock
-  - RAM: total/used/free
-  - GPU: temperature, memory (utilization if feasible)
+  - CPU: usage %, temperature, clock speed
+  - RAM: total/used/free/available
+  - GPU: temperature, memory allocation
+  - System: uptime, load average
 - Monitor only the host Raspberry Pi (single-device scope)
 - Simple web dashboard with auto-refresh/streaming updates
+- Historical metrics tracking with configurable buffer size
 - Token-only access (required for API and UI)
+
+### Metrics
+RMA tracks the following system metrics:
+
+**CPU Metrics:**
+- Usage percentage (overall and per-core)
+- Temperature (°C)
+- Clock frequency (MHz)
+- Load average (1m, 5m, 15m)
+
+**Memory Metrics:**
+- Total RAM
+- Used RAM
+- Free RAM
+- Available RAM
+- Usage percentage
+
+**GPU Metrics:**
+- Temperature (°C)
+- Memory allocation (MB)
+
+**System Information:**
+- Uptime
+- Hostname
+- OS information
+- Kernel version
+
+All metrics are collected at a configurable interval (default: 2 seconds) and stored in an in-memory history buffer (default: 300 samples).
 
 ### Prerequisites
 - Node 18+
@@ -105,6 +135,28 @@ pnpm --filter backend test
 
 ## Docker
 
+### Installing from GitHub Container Registry (GHCR)
+
+Pre-built multi-architecture images (amd64, arm64) are available from GitHub Container Registry:
+
+```bash
+# Pull the latest version
+docker pull ghcr.io/krzycuh/kma-rma:latest
+
+# Run the image
+docker run --rm -p 3001:3001 \
+  --privileged \
+  -e TOKENS=devtoken->Developer \
+  ghcr.io/krzycuh/kma-rma:latest
+```
+
+Access the app at: `http://localhost:3001/?token=devtoken`
+
+**Available tags:**
+- `latest` - Latest stable release
+- `<version>` - Specific version (e.g., `v1.0.0`)
+- `<sha>` - Specific commit SHA
+
 ### Build and run locally
 ```bash
 docker build -t kma-rma:latest .
@@ -180,4 +232,55 @@ pnpm --filter frontend build# frontend build
 4) In another: `pnpm --filter frontend dev` (Vite)
 5) Visit `http://localhost:5173/?token=aaa`
 
+## Contributing
+
+We welcome contributions to RMA! Here's how you can help:
+
+### Getting Started
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/kma-rma.git`
+3. Create a feature branch: `git checkout -b feature/your-feature-name`
+4. Install dependencies: `pnpm install`
+5. Set up your `.env` file with test tokens
+
+### Development Workflow
+1. Make your changes in the appropriate workspace (`backend/` or `frontend/`)
+2. Follow the existing code style and conventions
+3. Run linters before committing:
+   - Backend: `pnpm --filter backend lint`
+   - Frontend: `pnpm --filter frontend lint`
+4. Type-check your code:
+   - Backend: `pnpm --filter backend tsc --noEmit`
+   - Frontend: `pnpm --filter frontend tsc --noEmit`
+5. Test your changes locally
+6. Build to ensure everything compiles: `pnpm build`
+
+### Submitting Changes
+1. Commit your changes with clear, descriptive messages
+2. Push to your fork: `git push origin feature/your-feature-name`
+3. Open a Pull Request against the `main` branch
+4. Ensure CI checks pass (linting, type-checking, building)
+5. Wait for review and address any feedback
+
+### Code Style
+- Use TypeScript for all backend and frontend code
+- Follow the existing ESLint configuration
+- Use meaningful variable and function names
+- Add comments for complex logic
+- Keep functions focused and testable
+
+### Areas for Contribution
+- Bug fixes and error handling improvements
+- Additional metrics and monitoring features
+- UI/UX enhancements
+- Documentation improvements
+- Test coverage
+- Performance optimizations
+
+### Questions or Issues?
+- Open an issue for bugs or feature requests
+- Check existing issues before creating new ones
+- Provide detailed information and steps to reproduce bugs
+
+Thank you for contributing to RMA!
 
