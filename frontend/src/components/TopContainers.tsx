@@ -15,12 +15,15 @@ type ContainerUpdateResponse = {
   containerName: string;
   image: string;
   message: string;
-  imageUpdated: boolean;
+  imageUpdated?: boolean;
   logs?: string[];
+  detached?: boolean;
+  scheduled?: boolean;
+  logDir?: string;
 };
 
 type UpdateState = {
-  state: 'idle' | 'loading' | 'success' | 'upToDate' | 'error';
+  state: 'idle' | 'loading' | 'success' | 'upToDate' | 'error' | 'scheduled';
   message?: string;
   logs?: string[];
 };
@@ -57,6 +60,21 @@ export default function TopContainers() {
       } catch {
         // keep payload null if parsing fails
       }
+
+      // Handle detached restart (self-restart)
+      if (payload?.detached && payload?.scheduled) {
+        setUpdates(prev => ({
+          ...prev,
+          [container.id]: {
+            state: 'scheduled',
+            message: payload?.message || 'Container restart scheduled. This container will restart in a few seconds.',
+            logs: payload?.logDir ? [`Check logs in: ${payload.logDir}`] : undefined
+          }
+        }));
+        return;
+      }
+
+      // Handle normal restart
       const message =
         payload?.message ??
         (payload?.imageUpdated ? 'Container recreated with latest image.' : 'Image already up to date.');
@@ -126,7 +144,9 @@ export default function TopContainers() {
                           ? 'text-xs text-red-600 mb-2'
                           : updates[c.id].state === 'success'
                             ? 'text-xs text-green-600 mb-2'
-                            : 'text-xs text-gray-600 mb-2'
+                            : updates[c.id].state === 'scheduled'
+                              ? 'text-xs text-orange-600 mb-2'
+                              : 'text-xs text-gray-600 mb-2'
                       }
                     >
                       {updates[c.id]?.message}

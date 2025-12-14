@@ -7,7 +7,8 @@ import { getQueryParam } from '../utils/urlParser';
 import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS } from '../config';
 import { streamContainerLogsToSSE } from '../metrics/dockerLogs';
 import { DockerError } from '../docker/client';
-import { pullImageAndRecreateIfNeeded } from '../docker/imageManager';
+import { pullImageAndRecreateIfNeeded, pullImageAndRecreateDetached } from '../docker/imageManager';
+import { isSelfContainer } from '../docker/selfDetector';
 import { streamManager } from '../sse/streamManager';
 import { startContainerBroadcast } from '../sse/containerBroadcaster';
 import { SSEEventType } from '../sse/events';
@@ -122,7 +123,18 @@ export async function handleApiRoutes(
         return true;
       }
       try {
-        const outcome = await pullImageAndRecreateIfNeeded(id);
+        // Check if this is a self-restart (restarting the container that hosts this backend)
+        const isSelf = await isSelfContainer(id);
+
+        let outcome;
+        if (isSelf) {
+          // Use detached execution for self-restart to avoid killing the process mid-operation
+          outcome = await pullImageAndRecreateDetached(id);
+        } else {
+          // Normal restart for other containers
+          outcome = await pullImageAndRecreateIfNeeded(id);
+        }
+
         const result = new SuccessObject(outcome);
         res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
         res.end(result.getBody());
