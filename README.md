@@ -301,6 +301,39 @@ We welcome contributions to RMA! Here's how you can help:
 4. Install dependencies: `pnpm install`
 5. Set up your `.env` file with test tokens
 
+### Running the App for Development
+
+After setting up your environment, run the app in development mode:
+
+**Option 1: Full stack development (recommended)**
+```bash
+# Terminal 1: Start backend (with hot reload)
+pnpm dev
+
+# Terminal 2: Start frontend dev server (with hot reload)
+pnpm --filter frontend dev
+```
+
+Then visit `http://localhost:5173/?token=aaa` (Vite dev server proxies API to backend)
+
+**Option 2: Backend only**
+```bash
+pnpm dev
+pnpm build  # Build frontend once
+```
+
+Then visit `http://localhost:3001/?token=aaa` (backend serves built frontend)
+
+**Option 3: Docker development**
+```bash
+docker build -t kma-rma:dev .
+docker run --rm -p 3001:3001 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e TOKENS=aaa->Dev \
+  -e ENABLE_DOCKER_STATS=true \
+  kma-rma:dev
+```
+
 ### Development Workflow
 1. Make your changes in the appropriate workspace (`backend/` or `frontend/`)
 2. Follow the existing code style and conventions
