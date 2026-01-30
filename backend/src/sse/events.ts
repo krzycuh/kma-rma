@@ -1,4 +1,5 @@
 import { MetricsSnapshot } from '../metrics/collector';
+import { RouterResult } from '../router/types';
 
 /**
  * Event types for SSE stream
@@ -7,6 +8,7 @@ export enum SSEEventType {
   METRICS = 'metrics',
   CONTAINERS = 'containers',
   CONTAINER_LOG = 'container-log',
+  ROUTER = 'router',
   HEARTBEAT = 'heartbeat',
   ERROR = 'error'
 }
@@ -37,6 +39,7 @@ export type SSEEventPayload =
   | { type: SSEEventType.METRICS; data: MetricsSnapshot }
   | { type: SSEEventType.CONTAINERS; data: ContainerStats[] }
   | { type: SSEEventType.CONTAINER_LOG; data: ContainerLogEvent }
+  | { type: SSEEventType.ROUTER; data: RouterResult }
   | { type: SSEEventType.HEARTBEAT; data: { ts: number } }
   | { type: SSEEventType.ERROR; data: { message: string } };
 

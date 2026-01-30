@@ -1,10 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Tab, Tabs, TextField, Typography } from '@mui/material';
+import ComputerIcon from '@mui/icons-material/Computer';
+import RouterIcon from '@mui/icons-material/Router';
 import Sparkline from './components/Sparkline';
 import TopContainers from './components/TopContainers';
+import RouterTab from './components/router/RouterTab';
 import { SSEProvider, useSSE, type MetricsSnapshot } from './context/SSEContext';
 
-function Dashboard() {
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel({ children, value, index }: TabPanelProps) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`tabpanel-${index}`}
+      aria-labelledby={`tab-${index}`}
+    >
+      {value === index && <Box className="pt-4">{children}</Box>}
+    </div>
+  );
+}
+
+function SystemTab() {
   const { latestMetrics, token } = useSSE();
   const [samples, setSamples] = useState<MetricsSnapshot[]>([]);
 
@@ -65,68 +87,112 @@ function Dashboard() {
   };
 
   return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+      <div className="h-full">
+        <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+          <CardContent className="h-full flex flex-col gap-2">
+            <Typography variant="subtitle2">CPU</Typography>
+            <Typography variant="h5">
+              {latestMetrics?.cpu?.usagePercent != null ? `${latestMetrics.cpu.usagePercent.toFixed(1)}%` : '—'}
+              <span className="text-sm text-gray-500 ml-3">{latestMetrics?.cpu?.temperatureC != null ? `${latestMetrics.cpu.temperatureC.toFixed(1)}°C` : ''}</span>
+            </Typography>
+            <div className="mt-auto">
+              <Sparkline values={cpuSeries} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="h-full">
+        <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+          <CardContent className="h-full flex flex-col gap-2">
+            <Typography variant="subtitle2">RAM Used</Typography>
+            <Typography variant="h5">
+              {latestMetrics?.memory ? `${(latestMetrics.memory.usedKB/1024).toFixed(0)} MB / ${(latestMetrics.memory.memTotalKB/1024).toFixed(0)} MB` : '—'}
+            </Typography>
+            <div className="mt-auto">
+              <Sparkline values={ramSeries} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="h-full">
+        <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+          <CardContent className="h-full flex flex-col gap-2">
+            <Typography variant="subtitle2">Network</Typography>
+            <Typography variant="h6" className="text-blue-600">
+              ↓ {formatBytesPerSec(latestMetrics?.network?.totalRxBytesPerSec)}
+            </Typography>
+            <Typography variant="h6" className="text-green-600">
+              ↑ {formatBytesPerSec(latestMetrics?.network?.totalTxBytesPerSec)}
+            </Typography>
+            <div className="mt-auto space-y-1">
+              <div className="text-xs text-gray-500">Download</div>
+              <Sparkline values={downloadSeries} />
+              <div className="text-xs text-gray-500">Upload</div>
+              <Sparkline values={uploadSeries} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="h-full md:col-span-3">
+        <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+          <CardContent className="h-full flex flex-col gap-2">
+            <Typography variant="subtitle2">Containers</Typography>
+            <TopContainers />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard() {
+  const [tabValue, setTabValue] = useState(0);
+  const { routerEnabled } = useSSE();
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue);
+  };
+
+  return (
     <Box className="min-h-screen p-6 bg-gradient-to-b from-indigo-50 via-purple-50 to-white">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <Typography variant="h3" className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">Raspberry Pi Manager</Typography>
+          <Typography variant="h3" className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-indigo-600">
+            Raspberry Pi Manager
+          </Typography>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-          <div className="h-full">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">CPU</Typography>
-              <Typography variant="h5">
-                {latestMetrics?.cpu?.usagePercent != null ? `${latestMetrics.cpu.usagePercent.toFixed(1)}%` : '—'}
-                <span className="text-sm text-gray-500 ml-3">{latestMetrics?.cpu?.temperatureC != null ? `${latestMetrics.cpu.temperatureC.toFixed(1)}°C` : ''}</span>
-              </Typography>
-              <div className="mt-auto">
-                <Sparkline values={cpuSeries} />
-              </div>
-            </CardContent>
-          </Card>
-          </div>
-          <div className="h-full">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">RAM Used</Typography>
-              <Typography variant="h5">
-                {latestMetrics?.memory ? `${(latestMetrics.memory.usedKB/1024).toFixed(0)} MB / ${(latestMetrics.memory.memTotalKB/1024).toFixed(0)} MB` : '—'}
-              </Typography>
-              <div className="mt-auto">
-                <Sparkline values={ramSeries} />
-              </div>
-            </CardContent>
-          </Card>
-          </div>
-          <div className="h-full">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">Network</Typography>
-              <Typography variant="h6" className="text-blue-600">
-                ↓ {formatBytesPerSec(latestMetrics?.network?.totalRxBytesPerSec)}
-              </Typography>
-              <Typography variant="h6" className="text-green-600">
-                ↑ {formatBytesPerSec(latestMetrics?.network?.totalTxBytesPerSec)}
-              </Typography>
-              <div className="mt-auto space-y-1">
-                <div className="text-xs text-gray-500">Download</div>
-                <Sparkline values={downloadSeries} />
-                <div className="text-xs text-gray-500">Upload</div>
-                <Sparkline values={uploadSeries} />
-              </div>
-            </CardContent>
-          </Card>
-          </div>
-          <div className="h-full md:col-span-3">
-          <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
-            <CardContent className="h-full flex flex-col gap-2">
-              <Typography variant="subtitle2">Containers</Typography>
-              <TopContainers />
-            </CardContent>
-          </Card>
-          </div>
-        </div>
+        <Box className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-purple-100/60 p-4">
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            aria-label="dashboard tabs"
+            className="border-b border-gray-200"
+          >
+            <Tab
+              icon={<ComputerIcon />}
+              iconPosition="start"
+              label="System"
+              id="tab-0"
+              aria-controls="tabpanel-0"
+            />
+            <Tab
+              icon={<RouterIcon />}
+              iconPosition="start"
+              label={routerEnabled ? "Router" : "Router (disabled)"}
+              id="tab-1"
+              aria-controls="tabpanel-1"
+            />
+          </Tabs>
+
+          <TabPanel value={tabValue} index={0}>
+            <SystemTab />
+          </TabPanel>
+          <TabPanel value={tabValue} index={1}>
+            <RouterTab />
+          </TabPanel>
+        </Box>
       </div>
     </Box>
   );

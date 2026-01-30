@@ -1,16 +1,17 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { SuccessObject, Error as ErrorResult } from '../utils/ControllerResult';
 import { MetricsService } from '../metrics/service';
-import { ENABLE_DOCKER_STATS, LOGS_MAX_TAIL } from '../config';
+import { ENABLE_DOCKER_STATS, ENABLE_ROUTER_STATS, LOGS_MAX_TAIL } from '../config';
 import { getContainersStats } from '../metrics/dockerStats';
 import { getQueryParam } from '../utils/urlParser';
-import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS } from '../config';
+import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS, ROUTER_POLL_INTERVAL_MS } from '../config';
 import { streamContainerLogsToSSE } from '../metrics/dockerLogs';
 import { DockerError } from '../docker/client';
 import { pullImageAndRecreateIfNeeded, pullImageAndRecreateDetached } from '../docker/imageManager';
 import { isSelfContainer } from '../docker/selfDetector';
 import { streamManager } from '../sse/streamManager';
 import { startContainerBroadcast } from '../sse/containerBroadcaster';
+import { startRouterBroadcast, getRouterService } from '../router/broadcaster';
 import { SSEEventType } from '../sse/events';
 
 const metricsService = new MetricsService();
@@ -19,6 +20,7 @@ metricsService.start();
 // Start SSE infrastructure
 streamManager.start();
 startContainerBroadcast(5000);
+startRouterBroadcast(ROUTER_POLL_INTERVAL_MS);
 
 export async function handleApiRoutes(
   req: IncomingMessage,
@@ -51,6 +53,20 @@ export async function handleApiRoutes(
       }
     }
 
+    // Send initial router data
+    if (ENABLE_ROUTER_STATS) {
+      const routerService = getRouterService();
+      if (routerService) {
+        const routerResult = routerService.getLastResult();
+        if (routerResult) {
+          streamManager.broadcast({
+            type: SSEEventType.ROUTER,
+            data: routerResult
+          });
+        }
+      }
+    }
+
     // Connection stays open - handled by streamManager
     return true;
   }
@@ -79,6 +95,32 @@ export async function handleApiRoutes(
     const limitStr = getQueryParam(req.url || '', 'limit');
     const limit = limitStr ? Number.parseInt(limitStr, 10) : undefined;
     const history = metricsService.getHistory(Number.isFinite(limit as number) ? limit : undefined);
+    const result = new SuccessObject(history);
+    res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+    res.end(result.getBody());
+    return true;
+  }
+
+  // Router history endpoint
+  if (req.method === 'GET' && pathname === '/api/router/history') {
+    if (!ENABLE_ROUTER_STATS) {
+      const result = new ErrorResult('Router stats disabled', 404);
+      res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+      res.end(result.getBody());
+      return true;
+    }
+
+    const routerService = getRouterService();
+    if (!routerService) {
+      const result = new ErrorResult('Router service not initialized', 503);
+      res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+      res.end(result.getBody());
+      return true;
+    }
+
+    const limitStr = getQueryParam(req.url || '', 'limit');
+    const limit = limitStr ? Number.parseInt(limitStr, 10) : undefined;
+    const history = routerService.getHistory(Number.isFinite(limit as number) ? limit : undefined);
     const result = new SuccessObject(history);
     res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
     res.end(result.getBody());

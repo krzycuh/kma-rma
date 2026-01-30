@@ -34,4 +34,16 @@ export const DOCKER_SOCK_PATH = process.env.DOCKER_SOCK_PATH || '/var/run/docker
 
 export const LOGS_MAX_TAIL = parseInt(process.env.LOGS_MAX_TAIL || '2000', 10);
 
+// Router monitoring configuration
+export const ENABLE_ROUTER_STATS = (process.env.ENABLE_ROUTER_STATS || 'false') === 'true';
+export const ROUTER_IP = process.env.ROUTER_IP || '192.168.0.1';
+export const ROUTER_USERNAME = process.env.ROUTER_USERNAME || 'admin';
+export const ROUTER_PASSWORD = process.env.ROUTER_PASSWORD || 'admin';
+export const ROUTER_HTTPS = (process.env.ROUTER_HTTPS || 'false') === 'true';
+export const ROUTER_POLL_INTERVAL_MS = Math.max(
+  3000,
+  parseInt(process.env.ROUTER_POLL_INTERVAL_MS || '5000', 10)
+);
+export const ROUTER_HISTORY_SIZE = parseInt(process.env.ROUTER_HISTORY_SIZE || '60', 10);
+
 
