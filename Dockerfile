@@ -63,6 +63,6 @@ COPY backend/scripts ./backend/scripts
 EXPOSE 3001
 ENV NODE_CWD=/app/backend
 
-CMD ["node", "backend/dist/src/server.js"]
+CMD ["node", "backend/dist/server.js"]
 
 
