@@ -46,19 +46,11 @@ export default function TrafficCard({ traffic, history }: TrafficCardProps) {
           </Typography>
         </Box>
 
-        <Box className="grid grid-cols-2 gap-2 text-sm mt-1">
-          <Box>
-            <Typography variant="caption" color="text.secondary">Total Downloaded</Typography>
-            <Typography variant="body2">
-              {formatBytes(traffic.totalDownloadBytes)}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" color="text.secondary">Total Uploaded</Typography>
-            <Typography variant="body2">
-              {formatBytes(traffic.totalUploadBytes)}
-            </Typography>
-          </Box>
+        <Box className="text-sm mt-1">
+          <Typography variant="caption" color="text.secondary">Total Traffic</Typography>
+          <Typography variant="body2">
+            {formatBytes(traffic.totalBytes)}
+          </Typography>
         </Box>
 
         {downloadHistory.length > 1 && (
