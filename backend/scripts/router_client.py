@@ -191,11 +191,13 @@ def main():
                         "isOk": sim_status == 5
                     }
 
+                    # Use correct field names: cur_rx_speed, cur_tx_speed, total_statistics
+                    total_stats = getattr(lte_info, 'total_statistics', 0) or 0
                     wan_data = {
-                        "downloadBytesPerSec": getattr(lte_info, 'download_rate', 0) or 0,
-                        "uploadBytesPerSec": getattr(lte_info, 'upload_rate', 0) or 0,
-                        "totalDownloadBytes": getattr(lte_info, 'total_download', 0) or 0,
-                        "totalUploadBytes": getattr(lte_info, 'total_upload', 0) or 0
+                        "downloadBytesPerSec": getattr(lte_info, 'cur_rx_speed', 0) or 0,
+                        "uploadBytesPerSec": getattr(lte_info, 'cur_tx_speed', 0) or 0,
+                        "totalDownloadBytes": total_stats // 2,  # Approximate split
+                        "totalUploadBytes": total_stats // 2
                     }
 
                     connection_data["ispName"] = getattr(lte_info, 'isp_name', '') or ''
