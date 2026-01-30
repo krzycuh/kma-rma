@@ -1,5 +1,6 @@
 /**
  * Router stats broadcaster - sends router data to SSE clients
+ * Only polls when clients are connected to save resources
  */
 
 import { RouterService } from './service';
@@ -9,6 +10,7 @@ import { ENABLE_ROUTER_STATS } from '../config';
 import { RouterResult } from './types';
 
 let routerService: RouterService | null = null;
+let isPollingActive = false;
 
 /**
  * Initialize and start the router service
@@ -20,7 +22,7 @@ export function startRouterBroadcast(pollIntervalMs?: number): void {
   }
 
   if (routerService) {
-    console.log(new Date().toISOString(), 'RouterBroadcast: Already running');
+    console.log(new Date().toISOString(), 'RouterBroadcast: Already initialized');
     return;
   }
 
@@ -31,8 +33,29 @@ export function startRouterBroadcast(pollIntervalMs?: number): void {
     broadcastRouterStatus(result);
   });
 
-  routerService.start();
-  console.log(new Date().toISOString(), 'RouterBroadcast: Started');
+  // Register for client count changes
+  streamManager.onClientChange((clientCount: number) => {
+    if (clientCount > 0 && !isPollingActive) {
+      // Start polling when first client connects
+      console.log(new Date().toISOString(), `RouterBroadcast: Starting polling (${clientCount} clients connected)`);
+      routerService?.start();
+      isPollingActive = true;
+    } else if (clientCount === 0 && isPollingActive) {
+      // Stop polling when last client disconnects
+      console.log(new Date().toISOString(), 'RouterBroadcast: Stopping polling (no clients connected)');
+      routerService?.stop();
+      isPollingActive = false;
+    }
+  });
+
+  // Start polling if there are already clients connected
+  if (streamManager.getClientCount() > 0) {
+    routerService.start();
+    isPollingActive = true;
+    console.log(new Date().toISOString(), 'RouterBroadcast: Started (clients already connected)');
+  } else {
+    console.log(new Date().toISOString(), 'RouterBroadcast: Initialized (waiting for clients)');
+  }
 }
 
 /**
@@ -42,6 +65,7 @@ export function stopRouterBroadcast(): void {
   if (routerService) {
     routerService.stop();
     routerService = null;
+    isPollingActive = false;
     console.log(new Date().toISOString(), 'RouterBroadcast: Stopped');
   }
 }
