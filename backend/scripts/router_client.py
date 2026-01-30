@@ -192,12 +192,12 @@ def main():
                     }
 
                     # Use correct field names: cur_rx_speed, cur_tx_speed, total_statistics
+                    # Note: total_statistics is a single cumulative value (not split by direction)
                     total_stats = getattr(lte_info, 'total_statistics', 0) or 0
                     wan_data = {
                         "downloadBytesPerSec": getattr(lte_info, 'cur_rx_speed', 0) or 0,
                         "uploadBytesPerSec": getattr(lte_info, 'cur_tx_speed', 0) or 0,
-                        "totalDownloadBytes": total_stats // 2,  # Approximate split
-                        "totalUploadBytes": total_stats // 2
+                        "totalBytes": total_stats
                     }
 
                     connection_data["ispName"] = getattr(lte_info, 'isp_name', '') or ''

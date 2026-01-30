@@ -104,7 +104,7 @@ export default function DevicesTable({ devices, counts }: DevicesTableProps) {
                   <TableCell>Device</TableCell>
                   <TableCell>IP Address</TableCell>
                   <TableCell>Type</TableCell>
-                  <TableCell align="right">Packets</TableCell>
+                  <TableCell align="right">Total Packets</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

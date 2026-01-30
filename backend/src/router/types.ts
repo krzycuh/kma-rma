@@ -47,8 +47,7 @@ export interface SimStatus {
 export interface WanTraffic {
   downloadBytesPerSec: number;
   uploadBytesPerSec: number;
-  totalDownloadBytes: number;
-  totalUploadBytes: number;
+  totalBytes: number;  // Cumulative total (router doesn't split by direction)
 }
 
 export type ConnectionType = 'wired' | 'wifi_2g' | 'wifi_5g' | 'wifi_6g';
