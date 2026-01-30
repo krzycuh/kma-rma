@@ -60,8 +60,8 @@ export interface ConnectedDevice {
   displayName: string;
   connectionType: ConnectionType;
   signalStrength: number | null;
-  downloadBytesPerSec: number;
-  uploadBytesPerSec: number;
+  packetsSent: number | null;
+  packetsReceived: number | null;
   isActive: boolean;
 }
 

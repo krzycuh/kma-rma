@@ -11,6 +11,8 @@ type SSEClient = {
   connectedAt: number;
 };
 
+type ClientChangeCallback = (clientCount: number) => void;
+
 /**
  * Manages all active SSE connections
  */
@@ -18,6 +20,7 @@ export class StreamManager {
   private clients: Map<string, SSEClient> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private nextClientId = 1;
+  private onClientChangeCallbacks: ClientChangeCallback[] = [];
 
   /**
    * Start the stream manager and begin heartbeat
@@ -72,6 +75,7 @@ export class StreamManager {
     };
 
     this.clients.set(id, client);
+    this.notifyClientChange();
 
     // Handle client disconnect
     response.on('close', () => {
@@ -93,6 +97,7 @@ export class StreamManager {
         // Ignore errors when closing
       }
       this.clients.delete(id);
+      this.notifyClientChange();
     }
   }
 
@@ -142,6 +147,21 @@ export class StreamManager {
    */
   getClientIds(): string[] {
     return Array.from(this.clients.keys());
+  }
+
+  /**
+   * Register a callback to be notified when client count changes
+   */
+  onClientChange(callback: ClientChangeCallback): void {
+    this.onClientChangeCallbacks.push(callback);
+  }
+
+  /**
+   * Notify all registered callbacks about client count change
+   */
+  private notifyClientChange(): void {
+    const count = this.clients.size;
+    this.onClientChangeCallbacks.forEach(cb => cb(count));
   }
 }
 

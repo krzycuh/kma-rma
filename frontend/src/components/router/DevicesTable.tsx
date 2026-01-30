@@ -14,8 +14,21 @@ import {
 import WifiIcon from '@mui/icons-material/Wifi';
 import CableIcon from '@mui/icons-material/Cable';
 import DevicesIcon from '@mui/icons-material/Devices';
-import { formatBytesPerSec } from '../../utils/formatBytes';
 import type { ConnectedDevice, DeviceCounts } from '../../types/router';
+
+function formatPackets(packets: number | null): string {
+  if (packets === null) return '-';
+  if (packets >= 1_000_000_000) {
+    return `${(packets / 1_000_000_000).toFixed(1)}G`;
+  }
+  if (packets >= 1_000_000) {
+    return `${(packets / 1_000_000).toFixed(1)}M`;
+  }
+  if (packets >= 1_000) {
+    return `${(packets / 1_000).toFixed(1)}K`;
+  }
+  return packets.toString();
+}
 
 interface DevicesTableProps {
   devices: ConnectedDevice[];
@@ -91,7 +104,7 @@ export default function DevicesTable({ devices, counts }: DevicesTableProps) {
                   <TableCell>Device</TableCell>
                   <TableCell>IP Address</TableCell>
                   <TableCell>Type</TableCell>
-                  <TableCell align="right">Traffic</TableCell>
+                  <TableCell align="right">Packets</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -120,10 +133,10 @@ export default function DevicesTable({ devices, counts }: DevicesTableProps) {
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" className="text-blue-600">
-                        ↓ {formatBytesPerSec(device.downloadBytesPerSec)}
+                        ↓ {formatPackets(device.packetsReceived)}
                       </Typography>
                       <Typography variant="body2" className="text-green-600">
-                        ↑ {formatBytesPerSec(device.uploadBytesPerSec)}
+                        ↑ {formatPackets(device.packetsSent)}
                       </Typography>
                     </TableCell>
                   </TableRow>
