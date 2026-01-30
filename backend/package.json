@@ -11,7 +11,8 @@
     "clean": "rm -rf dist && rm -rf node_modules",
     "test": "dotenv -e ../.env.test -- jest",
     "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix"
+    "lint:fix": "eslint src --ext .ts --fix",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^17.2.0"

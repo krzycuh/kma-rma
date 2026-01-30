@@ -62,9 +62,55 @@ When Docker socket access is available, RMA provides additional container monito
 - Requires Docker socket access (`/var/run/docker.sock`)
 - Container broadcast interval: 5 seconds
 
+### Router/Gateway Monitoring (TP-Link LTE)
+
+When enabled, RMA can monitor your network's TP-Link LTE router (gateway), providing insights into internet connectivity and connected devices.
+
+**Supported Routers:**
+- TP-Link TL-MR100 (4G LTE Router)
+- Other TP-Link MR series routers may work (untested)
+
+**LTE Signal Metrics:**
+- Signal strength (RSRP, RSRQ, SNR)
+- Network type (4G LTE, 3G, etc.)
+- Signal quality indicator (excellent/good/fair/poor)
+- Historical signal strength chart
+
+**WAN Traffic:**
+- Real-time download/upload speed
+- Total session transfer statistics
+- Traffic history chart
+
+**Connected Devices:**
+- List of active devices on the network
+- Device hostname, IP address, connection type
+- Per-device traffic statistics
+
+**Connection Status:**
+- ISP/Operator name
+- Connection uptime
+- WAN IP address
+- SIM card status
+
+**Requirements:**
+- Python 3.x with `tplinkrouterc6u` library installed
+- Network access to router's web interface (typically 192.168.0.1)
+- Router admin credentials
+
+**Installation (Python dependency):**
+```bash
+pip3 install tplinkrouterc6u
+```
+
+**Configuration:**
+- Enable via `ENABLE_ROUTER_STATS=true` environment variable
+- Set router IP, username, and password via environment variables
+- Default polling interval: 5 seconds (configurable)
+
 ### Prerequisites
 - Node 18+
 - pnpm
+- Python 3.x + pip (required for router monitoring feature)
 - Docker (optional, for containerized runs)
 - fish shell (optional, for helper scripts)
 
@@ -98,6 +144,24 @@ ENABLE_DOCKER_STATS=true
 
 # Optional: max lines for container logs tail (default 1000)
 LOGS_MAX_TAIL=1000
+
+# Optional: enable router/gateway monitoring (default false)
+ENABLE_ROUTER_STATS=false
+
+# Router configuration (required when ENABLE_ROUTER_STATS=true)
+ROUTER_IP=192.168.0.1
+ROUTER_USERNAME=admin
+ROUTER_PASSWORD=admin
+
+# Optional: use HTTPS for router connection (default false)
+# Requires "Local Management via HTTPS" enabled in router settings
+ROUTER_HTTPS=false
+
+# Optional: router polling interval in milliseconds (default 5000, min 3000)
+ROUTER_POLL_INTERVAL_MS=5000
+
+# Optional: router metrics history buffer size (default 60)
+ROUTER_HISTORY_SIZE=60
 
 # Optional: working dir hint for serving built frontend (normally not needed locally)
 # NODE_CWD=/app/backend
@@ -229,6 +293,45 @@ This enables:
 - Container list with CPU/RAM usage
 - Real-time container logs streaming
 - Container image pull and restart functionality
+
+### Enabling Router/Gateway Monitoring
+
+To monitor your TP-Link LTE router from within RMA:
+
+```bash
+docker run --rm -p 3001:3001 \
+  -e TOKENS=devtoken->Developer \
+  -e ENABLE_ROUTER_STATS=true \
+  -e ROUTER_IP=192.168.0.1 \
+  -e ROUTER_USERNAME=admin \
+  -e ROUTER_PASSWORD=your_router_password \
+  ghcr.io/krzycuh/kma-rma:latest
+```
+
+Or in `docker-compose.yml`:
+
+```yaml
+services:
+  rma:
+    image: ghcr.io/krzycuh/kma-rma:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - TOKENS=devtoken->Developer
+      - ENABLE_ROUTER_STATS=true
+      - ROUTER_IP=192.168.0.1
+      - ROUTER_USERNAME=admin
+      - ROUTER_PASSWORD=your_router_password
+      - ROUTER_POLL_INTERVAL_MS=5000
+```
+
+**Note:** The Docker image includes Python 3 and the `tplinkrouterc6u` library pre-installed.
+
+This enables:
+- LTE signal quality monitoring (RSRP, RSRQ, SNR)
+- WAN traffic statistics
+- Connected devices list
+- Connection status and uptime
 
 ### Raspberry Pi prerequisites and container mounts
 
