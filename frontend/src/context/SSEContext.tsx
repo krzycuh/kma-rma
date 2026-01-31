@@ -132,10 +132,9 @@ export function SSEProvider({ token, children }: SSEProviderProps) {
             }
             return next;
           });
-        } else {
-          setRouterError(result.error);
-          // Keep last known good data
         }
+        // Backend only sends successful results - on error nothing is sent
+        // Frontend automatically preserves last known data (React state)
       } catch {
         // Ignore parse errors
       }

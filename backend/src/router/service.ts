@@ -92,17 +92,18 @@ export class RouterService {
       if (result.success) {
         this.lastError = null;
         this.pushSample(result.data);
+
+        // Only notify on success - frontend keeps last good data on errors
+        if (this.onSample) {
+          this.onSample(result);
+        }
       } else {
         this.lastError = result.error;
         console.error(
           new Date().toISOString(),
           `RouterService: Poll failed - ${result.errorCode}: ${result.error}`
         );
-      }
-
-      // Notify callback
-      if (this.onSample) {
-        this.onSample(result);
+        // Don't send anything via SSE on error - frontend preserves last state
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
