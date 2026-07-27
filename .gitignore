@@ -204,3 +204,5 @@ Thumbs.db
 
 target/
 .buildx-cache/
+# Vite static assets (the generic "public" entry above is for Gatsby)
+!frontend/public
