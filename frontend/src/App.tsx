@@ -206,10 +206,12 @@ function App() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    setToken(urlToken);
-    if (urlToken) {
-      void checkAuth(urlToken);
+    // Fall back to the stored token so the app works when launched
+    // from a home-screen icon (start_url has no ?token= param)
+    const initialToken = urlParams.get('token') ?? localStorage.getItem('kma-rma-token');
+    setToken(initialToken);
+    if (initialToken) {
+      void checkAuth(initialToken);
     }
   }, []);
 
@@ -221,6 +223,7 @@ function App() {
       if (!res.ok) throw new Error('Unauthorized');
       const data = await res.json();
       setUser(data.name ?? 'User');
+      localStorage.setItem('kma-rma-token', t);
     } catch {
       setError('Authorization failed. Check token.');
     } finally {
