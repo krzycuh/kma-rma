@@ -71,10 +71,23 @@ export type DockerHostConfig = {
   [key: string]: unknown;
 };
 
+export type DockerHealthState = {
+  Status?: string;
+  [key: string]: unknown;
+};
+
+export type DockerContainerState = {
+  Status?: string;
+  Running?: boolean;
+  Health?: DockerHealthState;
+  [key: string]: unknown;
+};
+
 export type DockerContainerInspect = {
   Id: string;
   Name?: string;
   Image?: string;
+  State?: DockerContainerState;
   Config?: DockerConfig;
   HostConfig?: DockerHostConfig;
   NetworkSettings?: DockerNetworkSettings;

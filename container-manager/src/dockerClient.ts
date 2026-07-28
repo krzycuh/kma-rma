@@ -1,5 +1,5 @@
 import http from 'http';
-import { CONTAINER_MANAGER_TOKEN, CONTAINER_MANAGER_URL, DOCKER_SOCK_PATH } from '../config';
+import { DOCKER_SOCK_PATH } from './config';
 
 export class DockerError extends Error {
   constructor(message: string, public readonly statusCode?: number) {
@@ -9,33 +9,6 @@ export class DockerError extends Error {
 }
 
 const agent = new http.Agent({ keepAlive: true, maxSockets: 25 });
-
-export function isManagerConfigured(): boolean {
-  return CONTAINER_MANAGER_URL !== '';
-}
-
-/**
- * Transport options for Docker API calls: the container-manager service
- * when configured (production — no docker.sock in this container),
- * otherwise the local Docker socket (development fallback).
- */
-export function dockerTransport(
-  path: string,
-  method: string,
-  headers: Record<string, string>
-): http.RequestOptions {
-  if (isManagerConfigured()) {
-    const base = new URL(CONTAINER_MANAGER_URL);
-    return {
-      hostname: base.hostname,
-      port: base.port ? parseInt(base.port, 10) : 80,
-      path,
-      method,
-      headers: { ...headers, 'x-manager-token': CONTAINER_MANAGER_TOKEN }
-    };
-  }
-  return { socketPath: DOCKER_SOCK_PATH, path, method, headers };
-}
 
 export type DockerRequestOptions = {
   path: string;
@@ -58,7 +31,10 @@ export async function dockerRequest(options: DockerRequestOptions): Promise<Dock
   return new Promise<DockerResponse>((resolve, reject) => {
     const req = http.request(
       {
-        ...dockerTransport(path, method, headers),
+        socketPath: DOCKER_SOCK_PATH,
+        path,
+        method,
+        headers,
         agent,
         timeout: timeoutMs
       },
@@ -126,4 +102,3 @@ export async function dockerJsonRequest<T>(options: DockerRequestOptions): Promi
     throw new DockerError(`Failed to parse JSON from Docker response for ${options.method ?? 'GET'} ${options.path}: ${(err as Error).message}`);
   }
 }
-

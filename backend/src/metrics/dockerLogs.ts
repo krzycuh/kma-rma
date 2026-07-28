@@ -1,5 +1,5 @@
 import http, { ServerResponse } from 'http';
-import { DOCKER_SOCK_PATH } from '../config';
+import { dockerTransport } from '../docker/client';
 
 const agent = new http.Agent({ keepAlive: true });
 
@@ -36,13 +36,10 @@ export function streamContainerLogsToSSE(
 
   const req = http.request(
     {
-      socketPath: DOCKER_SOCK_PATH,
-      path,
-      method: 'GET',
-      agent,
-      headers: {
+      ...dockerTransport(path, 'GET', {
         Accept: 'application/vnd.docker.raw-stream'
-      }
+      }),
+      agent
     },
     (dockerRes) => {
       if (dockerRes.statusCode && dockerRes.statusCode >= 400) {

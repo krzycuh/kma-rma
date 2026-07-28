@@ -32,6 +32,11 @@ export const PUBLIC_DIR = getPublicDir();
 export const ENABLE_DOCKER_STATS = (process.env.ENABLE_DOCKER_STATS || 'false') === 'true';
 export const DOCKER_SOCK_PATH = process.env.DOCKER_SOCK_PATH || '/var/run/docker.sock';
 
+// When set, all Docker reads and container updates go through the
+// container-manager service instead of a locally mounted docker.sock.
+export const CONTAINER_MANAGER_URL = process.env.CONTAINER_MANAGER_URL || '';
+export const CONTAINER_MANAGER_TOKEN = process.env.CONTAINER_MANAGER_TOKEN || '';
+
 export const LOGS_MAX_TAIL = parseInt(process.env.LOGS_MAX_TAIL || '2000', 10);
 
 // Router monitoring configuration
