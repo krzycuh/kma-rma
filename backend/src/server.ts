@@ -15,9 +15,9 @@ function createServer(): http.Server {
       return;
     }
 
-    // 2. Auth for other routes
+    // 2. Auth for other routes (/api/health stays open for Docker HEALTHCHECK)
     const user = validateToken(token);
-    if (!user && pathname !== '/unauthorized') {
+    if (!user && pathname !== '/unauthorized' && pathname !== '/api/health') {
       res.writeHead(302, { Location: '/unauthorized' });
       res.end();
       return;

@@ -49,17 +49,26 @@ jobs:
       - name: Lint frontend
         run: pnpm --filter frontend lint
 
+      - name: Lint container-manager
+        run: pnpm --filter container-manager lint
+
       - name: Type check backend
         run: pnpm --filter backend typecheck
 
       - name: Type check frontend
         run: pnpm --filter frontend typecheck
 
+      - name: Type check container-manager
+        run: pnpm --filter container-manager typecheck
+
       - name: Build backend
         run: pnpm --filter backend build
 
       - name: Build frontend
         run: pnpm --filter frontend build
+
+      - name: Build container-manager
+        run: pnpm --filter container-manager build
 
       # Optional: Run tests when implemented
       # - name: Test backend
@@ -87,5 +96,15 @@ jobs:
           file: ./Dockerfile
           push: false
           tags: kma-rma:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build container-manager Docker image (validation only)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./container-manager/Dockerfile
+          push: false
+          tags: kma-rma-container-manager:test
           cache-from: type=gha
           cache-to: type=gha,mode=max

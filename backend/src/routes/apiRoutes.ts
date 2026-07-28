@@ -7,8 +7,7 @@ import { getQueryParam } from '../utils/urlParser';
 import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS, ROUTER_POLL_INTERVAL_MS } from '../config';
 import { streamContainerLogsToSSE } from '../metrics/dockerLogs';
 import { DockerError } from '../docker/client';
-import { pullImageAndRecreateIfNeeded, pullImageAndRecreateDetached } from '../docker/imageManager';
-import { isSelfContainer } from '../docker/selfDetector';
+import { getUpdateStatus, isManagerConfigured, requestContainerUpdate } from '../docker/managerClient';
 import { streamManager } from '../sse/streamManager';
 import { startContainerBroadcast } from '../sse/containerBroadcaster';
 import { startRouterBroadcast, getRouterService } from '../router/broadcaster';
@@ -150,6 +149,30 @@ export async function handleApiRoutes(
       return true;
     }
 
+    // Update status polling (proxied to container-manager)
+    if (req.method === 'GET' && pathname.startsWith('/api/containers/update-status/')) {
+      if (!isManagerConfigured()) {
+        const result = new ErrorResult('Container manager not configured', 503);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+        return true;
+      }
+      const requestId = pathname.slice('/api/containers/update-status/'.length);
+      try {
+        const status = await getUpdateStatus(requestId);
+        const result = new SuccessObject(status);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+      } catch (err) {
+        const status = err instanceof DockerError && err.statusCode ? err.statusCode : 502;
+        const message = err instanceof Error ? err.message : 'Unknown container-manager error';
+        const result = new ErrorResult(message, status);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+      }
+      return true;
+    }
+
     if (req.method === 'POST' && pathname.startsWith('/api/containers/') && pathname.endsWith('/update')) {
       if (!ENABLE_DOCKER_STATS) {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -164,19 +187,19 @@ export async function handleApiRoutes(
         res.end(result.getBody());
         return true;
       }
+      if (!isManagerConfigured()) {
+        const result = new ErrorResult(
+          'Container manager not configured (set CONTAINER_MANAGER_URL); updates are disabled',
+          503
+        );
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+        return true;
+      }
       try {
-        // Check if this is a self-restart (restarting the container that hosts this backend)
-        const isSelf = await isSelfContainer(id);
-
-        let outcome;
-        if (isSelf) {
-          // Use detached execution for self-restart to avoid killing the process mid-operation
-          outcome = await pullImageAndRecreateDetached(id);
-        } else {
-          // Normal restart for other containers
-          outcome = await pullImageAndRecreateIfNeeded(id);
-        }
-
+        // The container-manager service performs the update — including for
+        // the container hosting this backend, since it lives outside it.
+        const outcome = await requestContainerUpdate(id);
         const result = new SuccessObject(outcome);
         res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
         res.end(result.getBody());

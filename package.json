@@ -5,7 +5,8 @@
   "description": "Template monorepo for Node backend + React frontend with token auth and static serving.",
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "container-manager"
   ],
   "scripts": {
     "start": "pnpm --filter backend start",

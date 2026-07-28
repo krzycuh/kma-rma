@@ -63,6 +63,9 @@ COPY backend/scripts ./backend/scripts
 EXPOSE 3001
 ENV NODE_CWD=/app/backend
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3001/api/health || exit 1
+
 CMD ["node", "backend/dist/server.js"]
 
 

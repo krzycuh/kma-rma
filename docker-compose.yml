@@ -8,8 +8,29 @@ services:
     environment:
       - TOKENS=devtoken->Developer
       - ENABLE_DOCKER_STATS=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - CONTAINER_MANAGER_URL=http://container-manager:3002
+      - CONTAINER_MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set CONTAINER_MANAGER_TOKEN in .env}
+    # No docker.sock here — all Docker access goes through container-manager
+    networks:
+      - default
+      - manager
     restart: unless-stopped
 
+  container-manager:
+    image: kma-rma-container-manager:latest
+    container_name: container-manager
+    platform: linux/arm64
+    environment:
+      - MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set CONTAINER_MANAGER_TOKEN in .env}
+      # Explicit list of containers the manager may update
+      - ALLOWED_CONTAINERS=kma-rma
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # No published ports — reachable only from the internal network
+    networks:
+      - manager
+    restart: unless-stopped
 
+networks:
+  manager:
+    internal: true

@@ -10,16 +10,12 @@ type Container = {
   memMB: number;
 };
 
-type ContainerUpdateResponse = {
-  containerId: string;
-  containerName: string;
-  image: string;
-  message: string;
-  imageUpdated?: boolean;
+type UpdateStatusResponse = {
+  requestId: string;
+  container: string;
+  state: 'pulling' | 'up-to-date' | 'restarting' | 'verifying' | 'done' | 'rolled-back' | 'failed';
+  message?: string;
   logs?: string[];
-  detached?: boolean;
-  scheduled?: boolean;
-  logDir?: string;
 };
 
 type UpdateState = {
@@ -27,6 +23,27 @@ type UpdateState = {
   message?: string;
   logs?: string[];
 };
+
+const TERMINAL_STATES = ['up-to-date', 'done', 'rolled-back', 'failed'];
+const POLL_INTERVAL_MS = 2000;
+// Self-update restarts this very app, so status polls fail while it is down.
+// Keep polling through errors until this deadline before giving up.
+const POLL_DEADLINE_MS = 180000;
+
+function toUpdateState(status: UpdateStatusResponse): UpdateState {
+  const logs = status.logs?.slice(-5);
+  switch (status.state) {
+    case 'done':
+      return { state: 'success', message: status.message ?? 'Container updated.', logs };
+    case 'up-to-date':
+      return { state: 'upToDate', message: status.message ?? 'Image already up to date.', logs };
+    case 'rolled-back':
+    case 'failed':
+      return { state: 'error', message: status.message ?? 'Update failed.', logs };
+    default:
+      return { state: 'loading', message: status.message ?? 'Updating…', logs };
+  }
+}
 
 export default function TopContainers() {
   const { containers, token } = useSSE();
@@ -42,10 +59,10 @@ export default function TopContainers() {
 
   const triggerUpdate = useCallback(async (container: Container) => {
     if (!token) return;
-    setUpdates(prev => ({
-      ...prev,
-      [container.id]: { state: 'loading', message: 'Checking for new image…' }
-    }));
+    const setUpdate = (state: UpdateState) =>
+      setUpdates(prev => ({ ...prev, [container.id]: state }));
+
+    setUpdate({ state: 'loading', message: 'Requesting update…' });
     try {
       const response = await fetch(`/api/containers/${container.id}/update?token=${token}`, {
         method: 'POST'
@@ -54,44 +71,44 @@ export default function TopContainers() {
       if (!response.ok) {
         throw new Error(text || `Request failed with status ${response.status}`);
       }
-      let payload: ContainerUpdateResponse | null = null;
-      try {
-        payload = JSON.parse(text) as ContainerUpdateResponse;
-      } catch {
-        // keep payload null if parsing fails
-      }
+      const initial = JSON.parse(text) as UpdateStatusResponse;
+      setUpdate(toUpdateState(initial));
+      if (TERMINAL_STATES.includes(initial.state)) return;
 
-      // Handle detached restart (self-restart)
-      if (payload?.detached && payload?.scheduled) {
-        setUpdates(prev => ({
-          ...prev,
-          [container.id]: {
-            state: 'scheduled',
-            message: payload?.message || 'Container restart scheduled. This container will restart in a few seconds.',
-            logs: payload?.logDir ? [`Check logs in: ${payload.logDir}`] : undefined
+      // Poll the container-manager (via this backend) until a terminal state.
+      const deadline = Date.now() + POLL_DEADLINE_MS;
+      let offlineSince: number | null = null;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
+        try {
+          const res = await fetch(
+            `/api/containers/update-status/${initial.requestId}?token=${token}`
+          );
+          if (!res.ok) {
+            throw new Error(`Status request failed with ${res.status}`);
           }
-        }));
-        return;
-      }
-
-      // Handle normal restart
-      const message =
-        payload?.message ??
-        (payload?.imageUpdated ? 'Container recreated with latest image.' : 'Image already up to date.');
-      setUpdates(prev => ({
-        ...prev,
-        [container.id]: {
-          state: payload?.imageUpdated ? 'success' : 'upToDate',
-          message,
-          logs: payload?.logs?.slice(0, 5)
+          offlineSince = null;
+          const status = await res.json() as UpdateStatusResponse;
+          setUpdate(toUpdateState(status));
+          if (TERMINAL_STATES.includes(status.state)) return;
+        } catch {
+          // Expected during a self-update: this app is restarting. Keep polling.
+          offlineSince = offlineSince ?? Date.now();
+          setUpdate({
+            state: 'loading',
+            message: 'App is restarting, waiting for it to come back…'
+          });
         }
-      }));
+      }
+      setUpdate({
+        state: 'error',
+        message: offlineSince
+          ? 'Timed out waiting for the app to come back. Refresh the page to check the result.'
+          : 'Timed out waiting for the update to finish.'
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected error while updating container';
-      setUpdates(prev => ({
-        ...prev,
-        [container.id]: { state: 'error', message }
-      }));
+      setUpdate({ state: 'error', message });
     }
   }, [token]);
 

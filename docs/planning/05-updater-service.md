@@ -1,7 +1,7 @@
-# Container Updates via a Dedicated Updater Service
+# Container Updates via a Dedicated Updater Service (`container-manager`)
 
-**Status:** Requirements / Planning (v2 — supersedes the one-shot sidecar design, see Decision Record)
-**Priority:** High (current self-update is broken — see problem statement)
+**Status:** Implemented (v3). Decisions on the open questions: Q1 — yes, `HEALTHCHECK` added to both Dockerfiles; Q2 — explicit allowlist (`ALLOWED_CONTAINERS`); Q3 — the read proxy and the updater are merged into a **single service named `container-manager`** instead of a separate `docker-socket-proxy`, so there is one privileged sidecar with one shared secret. Its read path is a GET-only path allowlist (`/containers/json`, `/containers/{id}/json`, `/containers/{id}/stats`, `/containers/{id}/logs` — streamed for `follow`), which supersedes R6's `docker-socket-proxy` wording below.
+**Priority:** High (previous self-update was broken — see problem statement)
 **Related:** `04-security-hardening.md` (this design implements R10 for the mutation path)
 
 ---
@@ -35,16 +35,15 @@ Independently, `04-security-hardening.md` (W6, R10) flags that mounting the raw 
                 ┌──────▼──────┐
                 │   kma-rma   │  no docker.sock
                 │  dashboard  │
-                └──┬───────┬──┘
-        internal   │       │   internal
-        network    │       │   network
-     ┌─────────────▼──┐  ┌─▼──────────────────┐
-     │ updater-service │  │ docker-socket-proxy│  (read-only: GET containers/stats/logs)
-     │  docker.sock    │  │    docker.sock     │
-     └─────────────────┘  └────────────────────┘
+                └──────┬──────┘
+                       │ internal network, shared secret
+            ┌──────────▼──────────┐
+            │  container-manager  │  GET-only proxy (list/stats/logs)
+            │     docker.sock     │  + POST /update, GET /status/:id
+            └─────────────────────┘
 ```
 
-Both privileged services live on an internal Docker network, publish **no host ports**, and are unreachable from outside the host.
+The single privileged service lives on an internal Docker network, publishes **no host ports**, and is unreachable from outside the host. (Q3 decision: proxy + updater merged into one service — one sidecar, one secret, one endpoint for the dashboard.)
 
 ## 4. Functional requirements — updater service
 
@@ -74,9 +73,9 @@ Both privileged services live on an internal Docker network, publish **no host p
 - kma-rma calls `POST /update {container: "kma-rma"}` like for any other container. The HTTP response to the *user* is sent before the updater stops kma-rma (updater delays ~3 s; the SSE drop is handled by `EventSource` auto-reconnect). After reconnect the UI polls `GET /status/:requestId` **through kma-rma** to show the outcome.
 - kma-rma's own `imageManager.ts` mutation code and `pullImageAndRecreateDetached` are **removed**; `restart-container.js` logic moves into the updater service.
 
-### R6 — Dashboard read path without raw socket (MUST)
-- kma-rma's Docker reads (`/containers/json`, `/containers/{id}/stats`, `/containers/{id}/logs`) go through a read-only socket proxy (e.g. `tecnativa/docker-socket-proxy` with `CONTAINERS=1`, POST disabled) on the internal network.
-- `backend/src/docker/client.ts` gains TCP support (`DOCKER_HOST=tcp://socket-proxy:2375`) next to the current `socketPath` mode (dev fallback).
+### R6 — Dashboard read path without raw socket (MUST) — *implemented inside container-manager (Q3)*
+- kma-rma's Docker reads (`/containers/json`, `/containers/{id}/stats`, `/containers/{id}/logs`) go through container-manager's GET-only path allowlist; log streams are piped, never buffered.
+- `backend/src/docker/client.ts` gains TCP support (`CONTAINER_MANAGER_URL=http://container-manager:3002` + token header) next to the current `socketPath` mode (dev fallback; updates are disabled in fallback mode).
 - After this, the kma-rma container mounts **no docker.sock at all**.
 
 ### R7 — Updater implementation constraints (SHOULD)
@@ -87,8 +86,8 @@ Both privileged services live on an internal Docker network, publish **no host p
 ### R8 — Updating the updater itself (MUST, documented limitation)
 - The updater does NOT update itself (same self-restart trap this design removes from kma-rma). It changes rarely; update procedure is `docker compose pull updater && docker compose up -d updater` over SSH, documented in README. (COULD: allowlist the updater in a second updater or Watchtower later — explicitly out of scope now.)
 
-### R9 — Compose / deployment (MUST)
-- `docker-compose.yml` gains: `updater` service (socket mount, `UPDATER_TOKEN`, allowlist), `socket-proxy` service (socket mount, read-only config), internal network; kma-rma loses its socket mount and gains `UPDATER_URL`, `UPDATER_TOKEN`, `DOCKER_HOST`.
+### R9 — Compose / deployment (MUST) — *single service (Q3)*
+- `docker-compose.yml` gains one `container-manager` service (socket mount, `MANAGER_TOKEN`, `ALLOWED_CONTAINERS`, internal network, no published ports); kma-rma loses its socket mount and gains `CONTAINER_MANAGER_URL` + `CONTAINER_MANAGER_TOKEN`.
 
 ## 5. What this changes for the threat model
 
@@ -118,8 +117,8 @@ Both privileged services live on an internal Docker network, publish **no host p
 - [ ] Stats, container list and log streaming still work via the read-only proxy; `POST` through the proxy is rejected (verified manually).
 - [ ] `docker ps -a` clean after successful updates (no leftover `-old-` containers).
 
-## 8. Open questions
+## 8. Open questions — resolved
 
-1. Add `HEALTHCHECK` to kma-rma's Dockerfile (`wget -qO- http://localhost:3001/api/health`) so R3.4 uses Docker health state? (Recommended: yes.)
-2. Should the allowlist support `*` for "any container on the host", or stay explicit? (Recommended: explicit.)
-3. Is `docker-socket-proxy`'s granularity sufficient for log streaming (`follow=true`)? Verify during implementation; fallback: proxy logs through the updater service instead.
+1. `HEALTHCHECK` in kma-rma's Dockerfile → **yes, added** (`wget -qO- http://127.0.0.1:3001/api/health`; `/api/health` is exempt from token auth for this purpose). container-manager has its own `HEALTHCHECK` on `/health`.
+2. Allowlist wildcard → **no, explicit list** (`ALLOWED_CONTAINERS=kma-rma,...`).
+3. Separate `docker-socket-proxy` vs merged → **merged into the single `container-manager` service**, which proxies the read paths itself (streaming supported), so no third-party proxy image is needed.

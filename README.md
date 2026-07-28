@@ -53,13 +53,13 @@ When Docker socket access is available, RMA provides additional container monito
 - Follow mode for continuous log streaming
 
 **Container Management:**
-- Pull latest image and restart container
-- Intelligent self-restart detection (uses detached mode when restarting RMA's own container)
-- Update status reporting (image pulled, container recreated)
+- Pull latest image and restart container (including RMA's own container — handled by the external `container-manager` service, so self-update survives the restart)
+- Live update status reporting (pulling → restarting → verifying → done / rolled-back)
+- Automatic rollback to the previous container when the new one fails to start
 
 **Configuration:**
 - Enable via `ENABLE_DOCKER_STATS=true` environment variable
-- Requires Docker socket access (`/var/run/docker.sock`)
+- Requires the `container-manager` sidecar service (`CONTAINER_MANAGER_URL` + `CONTAINER_MANAGER_TOKEN`); the RMA container itself needs **no** docker.sock mount. Without a manager URL the backend falls back to a local `/var/run/docker.sock` (dev only) and updates are disabled
 - Container broadcast interval: 5 seconds
 
 ### Router/Gateway Monitoring (TP-Link LTE)
@@ -117,7 +117,8 @@ pip3 install tplinkrouterc6u
 ### Repository Layout
 - `backend/` – Node + TypeScript HTTP server (no Express), outputs to `backend/dist`
 - `frontend/` – React + Vite SPA, outputs to `frontend/dist`
-- `Dockerfile` and `docker-compose.yml` – containerization
+- `container-manager/` – privileged sidecar service owning `/var/run/docker.sock`: read-only Docker API proxy + container update/rollback engine (see `docs/planning/05-updater-service.md`)
+- `Dockerfile`, `container-manager/Dockerfile` and `docker-compose.yml` – containerization
 - Helper scripts: `build-and-export.fish`, `copy-and-load-to-rpi.fish`
 
 ## Environment
@@ -141,6 +142,13 @@ METRICS_HISTORY_SIZE=300
 
 # Optional: enable Docker container monitoring (default false)
 ENABLE_DOCKER_STATS=true
+
+# Recommended in production: container-manager service endpoint + shared secret.
+# When set, all Docker reads and updates go through the manager and the RMA
+# container needs no docker.sock. When unset, the backend reads the local
+# Docker socket directly (dev fallback) and container updates are disabled.
+CONTAINER_MANAGER_URL=http://container-manager:3002
+CONTAINER_MANAGER_TOKEN=change-me-long-random-string
 
 # Optional: max lines for container logs tail (default 1000)
 LOGS_MAX_TAIL=1000
@@ -262,37 +270,51 @@ Open: `http://localhost:3001/?token=devtoken`
 docker compose up -d
 ```
 
-### Enabling Docker Container Monitoring
+### Enabling Docker Container Monitoring & Updates
 
-To monitor Docker containers from within RMA, mount the Docker socket and enable the feature:
+Docker access is provided by the `container-manager` sidecar — the RMA container itself runs **without** a docker.sock mount. The manager owns the socket, proxies read-only Docker API calls (list/stats/logs) and performs container updates (pull → recreate → verify → rollback), including updating the `kma-rma` container itself.
 
-```bash
-docker run --rm -p 3001:3001 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -e TOKENS=devtoken->Developer \
-  -e ENABLE_DOCKER_STATS=true \
-  ghcr.io/krzycuh/kma-rma:latest
-```
-
-Or in `docker-compose.yml`:
+Recommended `docker-compose.yml` (see the one in this repo):
 
 ```yaml
 services:
-  rma:
+  kma-rma:
     image: ghcr.io/krzycuh/kma-rma:latest
+    container_name: kma-rma
     ports:
       - "3001:3001"
     environment:
       - TOKENS=devtoken->Developer
       - ENABLE_DOCKER_STATS=true
+      - CONTAINER_MANAGER_URL=http://container-manager:3002
+      - CONTAINER_MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set in .env}
+    networks: [default, manager]
+    restart: unless-stopped
+
+  container-manager:
+    image: ghcr.io/krzycuh/kma-rma-container-manager:latest
+    container_name: container-manager
+    environment:
+      - MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set in .env}
+      - ALLOWED_CONTAINERS=kma-rma   # explicit list of updatable containers
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [manager]              # internal network, no published ports
+    restart: unless-stopped
+
+networks:
+  manager:
+    internal: true
 ```
+
+Generate the shared secret once: `openssl rand -base64 24` → put it in `.env` as `CONTAINER_MANAGER_TOKEN=...`.
 
 This enables:
 - Container list with CPU/RAM usage
 - Real-time container logs streaming
-- Container image pull and restart functionality
+- Container image pull & restart with automatic rollback — for every container listed in `ALLOWED_CONTAINERS`, including `kma-rma` itself
+
+**Dev fallback:** without `CONTAINER_MANAGER_URL` the backend reads a locally mounted `/var/run/docker.sock` directly (stats/logs only; updates return 503).
 
 ### Enabling Router/Gateway Monitoring
 
