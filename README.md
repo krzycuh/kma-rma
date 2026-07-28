@@ -108,8 +108,8 @@ pip3 install tplinkrouterc6u
 - Default polling interval: 5 seconds (configurable)
 
 ### Prerequisites
-- Node 18+
-- pnpm
+- Node 22+
+- pnpm 11 (pinned via the `packageManager` field — `corepack enable` is enough)
 - Python 3.x + pip (required for router monitoring feature)
 - Docker (optional, for containerized runs)
 - fish shell (optional, for helper scripts)

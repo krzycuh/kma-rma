@@ -2,7 +2,7 @@
 #   docker build -f container-manager/Dockerfile .
 
 # Stage 1: Builder
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY container-manager container-manager
 RUN pnpm --filter container-manager build
 
 # Stage 2: Runtime (no runtime dependencies — plain Node)
-FROM node:18-alpine
+FROM node:22-alpine
 
 ARG BUILD_DATE
 ARG VCS_REF
