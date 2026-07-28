@@ -22,8 +22,9 @@ services:
     platform: linux/arm64
     environment:
       - MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set CONTAINER_MANAGER_TOKEN in .env}
-      # Explicit list of containers the manager may update
-      - ALLOWED_CONTAINERS=kma-rma
+      # By default every container may be updated (same as before the
+      # manager existed). Uncomment to restrict to an explicit list:
+      # - ALLOWED_CONTAINERS=kma-rma
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # No published ports — reachable only from the internal network

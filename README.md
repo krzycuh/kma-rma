@@ -296,7 +296,8 @@ services:
     container_name: container-manager
     environment:
       - MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set in .env}
-      - ALLOWED_CONTAINERS=kma-rma   # explicit list of updatable containers
+      # optional: restrict updatable containers (default: all)
+      # - ALLOWED_CONTAINERS=kma-rma
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks: [manager]              # internal network, no published ports
@@ -312,7 +313,7 @@ Generate the shared secret once: `openssl rand -base64 24` → put it in `.env` 
 This enables:
 - Container list with CPU/RAM usage
 - Real-time container logs streaming
-- Container image pull & restart with automatic rollback — for every container listed in `ALLOWED_CONTAINERS`, including `kma-rma` itself
+- Container image pull & restart with automatic rollback — for every container (or only those listed in `ALLOWED_CONTAINERS`, if set), including `kma-rma` itself
 
 **Dev fallback:** without `CONTAINER_MANAGER_URL` the backend reads a locally mounted `/var/run/docker.sock` directly (stats/logs only; updates return 503).
 

@@ -8,7 +8,7 @@ import {
   DockerNetworkSettings
 } from './dockerTypes';
 import {
-  ALLOWED_CONTAINERS,
+  isContainerAllowed,
   PRE_STOP_DELAY_MS,
   VERIFY_STABLE_MS,
   VERIFY_TIMEOUT_MS
@@ -316,7 +316,7 @@ export async function startUpdate(target: string, requestId: string): Promise<Up
   const inspect = await inspectContainer(target);
   const containerName = (inspect.Name ?? '').replace(/^\//, '') || inspect.Id;
 
-  if (!ALLOWED_CONTAINERS.includes(containerName)) {
+  if (!isContainerAllowed(containerName)) {
     throw new ForbiddenError(`Container ${containerName} is not in the allowed list`);
   }
 
