@@ -120,5 +120,5 @@ The single privileged service lives on an internal Docker network, publishes **n
 ## 8. Open questions — resolved
 
 1. `HEALTHCHECK` in kma-rma's Dockerfile → **yes, added** (`wget -qO- http://127.0.0.1:3001/api/health`; `/api/health` is exempt from token auth for this purpose). container-manager has its own `HEALTHCHECK` on `/health`.
-2. Allowlist wildcard → **no, explicit list** (`ALLOWED_CONTAINERS=kma-rma,...`).
+2. Allowlist → **revised after review**: default is allow-all (matching the pre-manager behavior, where any container could be updated from the UI); `ALLOWED_CONTAINERS=name,name` optionally restricts, `*`/unset means all. The main security win (no docker.sock in the dashboard, name-only API, shared secret, internal network) does not depend on the allowlist.
 3. Separate `docker-socket-proxy` vs merged → **merged into the single `container-manager` service**, which proxies the read paths itself (streaming supported), so no third-party proxy image is needed.

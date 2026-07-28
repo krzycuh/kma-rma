@@ -1,5 +1,5 @@
 import http, { IncomingMessage, ServerResponse } from 'http';
-import { ALLOWED_CONTAINERS, HOST, MANAGER_TOKEN, PORT } from './config';
+import { ALLOW_ALL_CONTAINERS, ALLOWED_CONTAINERS, HOST, MANAGER_TOKEN, PORT } from './config';
 import { isAuthorized } from './auth';
 import { isAllowedReadPath, proxyDockerGet } from './readProxy';
 import { ConflictError, ForbiddenError, getStatus, startUpdate } from './updateManager';
@@ -107,13 +107,15 @@ if (require.main === module) {
     console.error('MANAGER_TOKEN env variable is required — refusing to start without authentication');
     process.exit(1);
   }
-  if (ALLOWED_CONTAINERS.length === 0) {
-    console.warn('ALLOWED_CONTAINERS is empty — updates are disabled, only read proxying will work');
-  }
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(new Date().toISOString(), `container-manager listening on ${HOST}:${PORT}`);
-    console.log(new Date().toISOString(), `Allowed containers for update: ${ALLOWED_CONTAINERS.join(', ') || '(none)'}`);
+    console.log(
+      new Date().toISOString(),
+      ALLOW_ALL_CONTAINERS
+        ? 'Allowed containers for update: all (set ALLOWED_CONTAINERS to restrict)'
+        : `Allowed containers for update: ${ALLOWED_CONTAINERS.join(', ')}`
+    );
   });
 }
 

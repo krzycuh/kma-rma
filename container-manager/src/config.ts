@@ -6,11 +6,20 @@ export const DOCKER_SOCK_PATH = process.env.DOCKER_SOCK_PATH || '/var/run/docker
 // Shared secret required on every request (except /health).
 export const MANAGER_TOKEN = process.env.MANAGER_TOKEN || '';
 
-// Explicit list of container names this service is allowed to update.
+// Optional restriction of updatable container names. Unset (or '*')
+// means every container may be updated — same behavior the dashboard
+// had before the manager existed. Set a comma-separated list to restrict.
 export const ALLOWED_CONTAINERS = (process.env.ALLOWED_CONTAINERS || '')
   .split(',')
   .map(name => name.trim())
   .filter(Boolean);
+
+export const ALLOW_ALL_CONTAINERS =
+  ALLOWED_CONTAINERS.length === 0 || ALLOWED_CONTAINERS.includes('*');
+
+export function isContainerAllowed(name: string): boolean {
+  return ALLOW_ALL_CONTAINERS || ALLOWED_CONTAINERS.includes(name);
+}
 
 // How long a freshly started container must stay Running (no HEALTHCHECK case).
 export const VERIFY_STABLE_MS = parseInt(process.env.VERIFY_STABLE_MS || '10000', 10);
