@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -28,7 +28,7 @@ RUN pnpm --filter frontend build
 RUN pnpm --filter backend build
 
 # Stage 2: Runtime
-FROM node:18-alpine
+FROM node:22-alpine
 
 ARG BUILD_DATE
 ARG VCS_REF
