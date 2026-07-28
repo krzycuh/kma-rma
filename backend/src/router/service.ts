@@ -19,6 +19,7 @@ export class RouterService {
   private lastResult: RouterResult | null = null;
   private lastError: string | null = null;
   private pollInterval: NodeJS.Timeout | null = null;
+  private pollInFlight = false;
   private onSample: ((result: RouterResult) => void) | null = null;
 
   private readonly pollIntervalMs: number;
@@ -82,9 +83,13 @@ export class RouterService {
   }
 
   /**
-   * Poll router data
+   * Poll router data. Skips the tick if the previous poll is still running —
+   * the collector can take up to 25s on a hung router connection, and
+   * concurrent logins trip the router's session limit.
    */
   private async poll(): Promise<void> {
+    if (this.pollInFlight) return;
+    this.pollInFlight = true;
     try {
       const result = await this.collector.collect();
       this.lastResult = result;
@@ -112,6 +117,8 @@ export class RouterService {
         new Date().toISOString(),
         `RouterService: Unexpected error - ${errorMessage}`
       );
+    } finally {
+      this.pollInFlight = false;
     }
   }
 
