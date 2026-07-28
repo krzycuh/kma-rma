@@ -68,8 +68,8 @@ Format: MUST / SHOULD / COULD. "Session" below means a server-verifiable, expiri
 ### R9 — Security headers (SHOULD)
 - `Content-Security-Policy: default-src 'self'` (plus what MUI needs for inline styles), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `frame-ancestors 'none'`.
 
-### R10 — Reduce docker.sock blast radius (COULD)
-- Put a socket proxy (e.g. `tecnativa/docker-socket-proxy`) between the app and the daemon, allowing only the API endpoints the app uses (containers list/inspect/stats/logs, image pull, container lifecycle). Compromise of the app then no longer implies arbitrary privileged containers.
+### R10 — Reduce docker.sock blast radius (MUST — adopted, designed in doc 05)
+- **Decision:** implemented by the dedicated updater-service architecture in `05-updater-service.md`: the dashboard container mounts no docker.sock at all. Mutations go through a narrow internal updater API (container-name-only, allowlisted, shared secret); reads (list/stats/logs) go through a read-only socket proxy (e.g. `tecnativa/docker-socket-proxy`). After this, a dashboard token compromise no longer implies host root — it guards the dashboard, not the system.
 
 ### R11 — Second factor / network-level gate (COULD)
 - TOTP (e.g. `otplib`) for admin logins, or keep the app off the public internet entirely behind a VPN/tunnel with its own auth (Tailscale, Cloudflare Access). If a VPN gate is adopted, R1–R6 still apply as defense in depth.
