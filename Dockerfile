@@ -47,8 +47,10 @@ RUN corepack enable
 # Install Python 3 and pip for router monitoring feature
 RUN apk add --no-cache python3 py3-pip
 
-# Install tplinkrouterc6u library for TP-Link router API
-RUN pip3 install --no-cache-dir --break-system-packages tplinkrouterc6u
+# Install tplinkrouterc6u library for TP-Link router API.
+# Pinned: newer releases (5.2x) break TL-MR100 communication
+# (login error 71234, malformed protocol responses).
+RUN pip3 install --no-cache-dir --break-system-packages tplinkrouterc6u==5.14.1
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json backend/package.json
