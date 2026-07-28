@@ -310,6 +310,35 @@ networks:
 
 Generate the shared secret once: `openssl rand -base64 24` → put it in `.env` as `CONTAINER_MANAGER_TOKEN=...`.
 
+**Host-networking variant:** if `kma-rma` runs with `network_mode: host` (e.g. so network metrics show the host's interfaces), Compose forbids combining it with `networks:`. Run the manager in host mode too, bound to loopback only:
+
+```yaml
+services:
+  kma-rma:
+    image: ghcr.io/krzycuh/kma-rma:latest
+    container_name: kma-rma
+    network_mode: host          # no networks: and no ports: here
+    environment:
+      - TOKENS=devtoken->Developer
+      - ENABLE_DOCKER_STATS=true
+      - CONTAINER_MANAGER_URL=http://127.0.0.1:3002
+      - CONTAINER_MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set in .env}
+    restart: unless-stopped
+
+  container-manager:
+    image: ghcr.io/krzycuh/kma-rma-container-manager:latest
+    container_name: container-manager
+    network_mode: host
+    environment:
+      - HOST=127.0.0.1          # loopback only — never expose the manager on the LAN
+      - MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set in .env}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+```
+
+kma-rma reaches the manager over the host loopback; `HOST=127.0.0.1` keeps the manager unreachable from outside the machine (the equivalent of the internal network in the bridge variant).
+
 This enables:
 - Container list with CPU/RAM usage
 - Real-time container logs streaming
