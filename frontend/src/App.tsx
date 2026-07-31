@@ -3,6 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Tab, Tabs, TextField, Typography
 import ComputerIcon from '@mui/icons-material/Computer';
 import RouterIcon from '@mui/icons-material/Router';
 import Sparkline from './components/Sparkline';
+import { formatBytes } from './utils/formatBytes';
 import TopContainers from './components/TopContainers';
 import RouterTab from './components/router/RouterTab';
 import { SSEProvider, useSSE, type MetricsSnapshot } from './context/SSEContext';
@@ -131,6 +132,44 @@ function SystemTab() {
               <div className="text-xs text-gray-500">Upload</div>
               <Sparkline values={uploadSeries} />
             </div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="h-full md:col-span-3">
+        <Card className="h-full rounded-2xl shadow-xl border border-purple-100/60 bg-white/80 backdrop-blur-sm">
+          <CardContent className="h-full flex flex-col gap-3">
+            <Typography variant="subtitle2">Storage</Typography>
+            {latestMetrics?.disks?.length ? (
+              latestMetrics.disks.map((disk) => {
+                const percent = Math.max(0, Math.min(100, disk.usedPercent));
+                const barColor = percent >= 90
+                  ? 'bg-red-500'
+                  : percent >= 75
+                    ? 'bg-amber-500'
+                    : 'bg-gradient-to-r from-violet-500 to-indigo-500';
+                return (
+                  <div key={disk.mountpoint} className="space-y-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        {disk.mountpoint === '/' ? 'SD card (/)' : disk.mountpoint}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {formatBytes(disk.usedBytes)} / {formatBytes(disk.totalBytes)}
+                        <span className="ml-2 text-gray-700 font-medium">{percent.toFixed(0)}%</span>
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-gray-200/80 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${barColor}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <Typography variant="body2" className="text-gray-500">—</Typography>
+            )}
           </CardContent>
         </Card>
       </div>

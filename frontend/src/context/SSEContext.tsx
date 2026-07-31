@@ -29,6 +29,15 @@ export type MetricsSnapshot = {
     totalRxBytesPerSec: number | null;
     totalTxBytesPerSec: number | null;
   } | null;
+  disks: Array<{
+    filesystem: string;
+    mountpoint: string;
+    fsType: string;
+    totalBytes: number;
+    usedBytes: number;
+    availableBytes: number;
+    usedPercent: number;
+  }> | null;
 };
 
 type Container = {
