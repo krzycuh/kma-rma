@@ -11,6 +11,11 @@ services:
       - CONTAINER_MANAGER_URL=http://container-manager:3002
       - CONTAINER_MANAGER_TOKEN=${CONTAINER_MANAGER_TOKEN:?set CONTAINER_MANAGER_TOKEN in .env}
     # No docker.sock here — all Docker access goes through container-manager
+    # The dashboard reports SD card usage out of the box (statfs on the
+    # container root reflects the host root filesystem). To also show other
+    # disks (e.g. a USB drive), bind-mount them read-only:
+    # volumes:
+    #   - /mnt/usb:/mnt/usb:ro
     networks:
       - default
       - manager

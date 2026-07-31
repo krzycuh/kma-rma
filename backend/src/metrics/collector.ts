@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import { computeCpuUsagePercent, parseProcMeminfo, parseProcStat, parseVcgencmdMeasureTemp } from './index';
 import { CpuTimes, MemoryStats, TemperatureCelsius } from './types';
 import { readNetworkStats, NetworkStats } from './procNetDev';
+import { readDiskUsage, DiskUsage } from './diskUsage';
 
 const execFileAsync = promisify(execFile);
 
@@ -25,6 +26,7 @@ export type MetricsSnapshot = {
     totalRxBytesPerSec: number | null;
     totalTxBytesPerSec: number | null;
   } | null;
+  disks: DiskUsage[] | null;
 };
 
 async function readTextFile(path: string): Promise<string | null> {
@@ -104,11 +106,12 @@ export class LocalMetricsCollector {
 
   private async pollOnce(): Promise<void> {
     const now = Date.now();
-    const [cpuTimes, mem, cpuTemp, netStats] = await Promise.all([
+    const [cpuTimes, mem, cpuTemp, netStats, disks] = await Promise.all([
       readProcStat(),
       readProcMeminfo(),
       readCpuTemp(),
-      readNetworkStats()
+      readNetworkStats(),
+      readDiskUsage()
     ]);
 
     const usagePercent = this.computeUsage(cpuTimes);
@@ -167,7 +170,8 @@ export class LocalMetricsCollector {
         temperatureC: cpuTemp?.celsius ?? null
       },
       memory,
-      network: networkSnapshot
+      network: networkSnapshot,
+      disks
     };
 
     try {
