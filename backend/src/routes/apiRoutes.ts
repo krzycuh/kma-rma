@@ -7,9 +7,14 @@ import { getQueryParam } from '../utils/urlParser';
 import { METRICS_HISTORY_SIZE, METRICS_POLL_INTERVAL_MS, ROUTER_POLL_INTERVAL_MS } from '../config';
 import { streamContainerLogsToSSE } from '../metrics/dockerLogs';
 import { DockerError } from '../docker/client';
-import { getUpdateStatus, isManagerConfigured, requestContainerUpdate } from '../docker/managerClient';
+import {
+  getUpdateStatus,
+  isManagerConfigured,
+  requestContainerLifecycle,
+  requestContainerUpdate
+} from '../docker/managerClient';
 import { streamManager } from '../sse/streamManager';
-import { startContainerBroadcast } from '../sse/containerBroadcaster';
+import { broadcastContainerStats, startContainerBroadcast } from '../sse/containerBroadcaster';
 import { startRouterBroadcast, getRouterService } from '../router/broadcaster';
 import { SSEEventType } from '../sse/events';
 
@@ -200,6 +205,52 @@ export async function handleApiRoutes(
         // The container-manager service performs the update — including for
         // the container hosting this backend, since it lives outside it.
         const outcome = await requestContainerUpdate(id);
+        const result = new SuccessObject(outcome);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+      } catch (err) {
+        const status = err instanceof DockerError && err.statusCode ? err.statusCode : 500;
+        const message = err instanceof Error ? err.message : 'Unknown Docker error';
+        const result = new ErrorResult(message, status);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+      }
+      return true;
+    }
+
+    // Stop / start a container (proxied to container-manager)
+    if (
+      req.method === 'POST' &&
+      pathname.startsWith('/api/containers/') &&
+      (pathname.endsWith('/stop') || pathname.endsWith('/start'))
+    ) {
+      if (!ENABLE_DOCKER_STATS) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Docker stats disabled');
+        return true;
+      }
+      const parts = pathname.split('/');
+      const id = parts[3];
+      const action = pathname.endsWith('/stop') ? 'stop' : 'start';
+      if (!id) {
+        const result = new ErrorResult('Container id required', 400);
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+        return true;
+      }
+      if (!isManagerConfigured()) {
+        const result = new ErrorResult(
+          'Container manager not configured (set CONTAINER_MANAGER_URL); container actions are disabled',
+          503
+        );
+        res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
+        res.end(result.getBody());
+        return true;
+      }
+      try {
+        const outcome = await requestContainerLifecycle(id, action);
+        // Refresh the container list right away so the UI reflects the new state.
+        void broadcastContainerStats();
         const result = new SuccessObject(outcome);
         res.writeHead(result.getStatusCode(), { 'Content-Type': result.getContentType() });
         res.end(result.getBody());

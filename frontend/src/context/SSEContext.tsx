@@ -43,6 +43,7 @@ export type MetricsSnapshot = {
 type Container = {
   id: string;
   name: string;
+  state: string;
   cpuPercent: number;
   memPercent: number;
   memMB: number;

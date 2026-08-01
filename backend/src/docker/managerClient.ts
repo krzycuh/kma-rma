@@ -42,3 +42,27 @@ export async function getUpdateStatus(requestId: string): Promise<UpdateStatus> 
     method: 'GET'
   });
 }
+
+export type LifecycleAction = 'stop' | 'start';
+
+export type LifecycleResult = {
+  container: string;
+  action: LifecycleAction;
+  state: string;
+};
+
+/**
+ * Asks the container-manager service to stop or start a container. A stopped
+ * container stays down until started again (restart policies do not apply
+ * after an explicit stop).
+ */
+export async function requestContainerLifecycle(
+  containerIdOrName: string,
+  action: LifecycleAction
+): Promise<LifecycleResult> {
+  return dockerJsonRequest<LifecycleResult>({
+    path: `/${action}`,
+    method: 'POST',
+    body: { container: containerIdOrName }
+  });
+}

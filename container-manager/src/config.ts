@@ -6,9 +6,9 @@ export const DOCKER_SOCK_PATH = process.env.DOCKER_SOCK_PATH || '/var/run/docker
 // Shared secret required on every request (except /health).
 export const MANAGER_TOKEN = process.env.MANAGER_TOKEN || '';
 
-// Optional restriction of updatable container names. Unset (or '*')
-// means every container may be updated — same behavior the dashboard
-// had before the manager existed. Set a comma-separated list to restrict.
+// Optional restriction of manageable container names (update, stop, start).
+// Unset (or '*') means every container may be managed — same behavior the
+// dashboard had before the manager existed. Set a comma-separated list to restrict.
 export const ALLOWED_CONTAINERS = (process.env.ALLOWED_CONTAINERS || '')
   .split(',')
   .map(name => name.trim())

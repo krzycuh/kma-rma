@@ -5,9 +5,16 @@ import { useSSE } from '../context/SSEContext';
 type Container = {
   id: string;
   name: string;
+  state: string;
   cpuPercent: number;
   memPercent: number;
   memMB: number;
+};
+
+type LifecycleResult = {
+  container: string;
+  action: 'stop' | 'start';
+  state: string;
 };
 
 type UpdateStatusResponse = {
@@ -112,6 +119,33 @@ export default function TopContainers() {
     }
   }, [token]);
 
+  const triggerLifecycle = useCallback(async (container: Container, action: 'stop' | 'start') => {
+    if (!token) return;
+    const setUpdate = (state: UpdateState) =>
+      setUpdates(prev => ({ ...prev, [container.id]: state }));
+
+    setUpdate({ state: 'loading', message: action === 'stop' ? 'Stopping…' : 'Starting…' });
+    try {
+      const response = await fetch(`/api/containers/${container.id}/${action}?token=${token}`, {
+        method: 'POST'
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        throw new Error(text || `Request failed with status ${response.status}`);
+      }
+      const result = JSON.parse(text) as LifecycleResult;
+      setUpdate({
+        state: 'success',
+        message: `Container ${result.action === 'stop' ? 'stopped' : 'started'} (state: ${result.state}).`
+      });
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : `Unexpected error while ${action === 'stop' ? 'stopping' : 'starting'} container`;
+      setUpdate({ state: 'error', message });
+    }
+  }, [token]);
+
   return (
     <div className="text-sm">
       <div className="grid grid-cols-8 text-gray-500">
@@ -124,25 +158,57 @@ export default function TopContainers() {
         {sorted.map(c => (
           <div key={c.id}>
             <div className="grid grid-cols-8 py-1 items-center">
-              <button className="text-left col-span-3 truncate hover:underline" title={`${c.name} (${c.id.slice(0, 12)})`} onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}>
+              <button
+                className={`text-left col-span-3 truncate hover:underline ${c.state !== 'running' ? 'text-gray-400' : ''}`}
+                title={`${c.name} (${c.id.slice(0, 12)}) — ${c.state}`}
+                onClick={() => setExpandedId(expandedId === c.id ? null : c.id)}
+              >
+                <span
+                  className={`inline-block w-2 h-2 rounded-full mr-1.5 align-middle ${c.state === 'running' ? 'bg-green-500' : 'bg-gray-400'}`}
+                />
                 {c.name}
               </button>
-              <div className="text-right">{c.cpuPercent.toFixed(1)}</div>
-              <div className="text-right">{c.memPercent.toFixed(1)}</div>
-              <div className="text-right col-span-2">{Math.round(c.memMB)} MB</div>
+              {c.state === 'running' ? (
+                <>
+                  <div className="text-right">{c.cpuPercent.toFixed(1)}</div>
+                  <div className="text-right">{c.memPercent.toFixed(1)}</div>
+                  <div className="text-right col-span-2">{Math.round(c.memMB)} MB</div>
+                </>
+              ) : (
+                <div className="text-right col-span-4 text-gray-400 capitalize">{c.state}</div>
+              )}
             </div>
               {expandedId === c.id && (
                 <div className="col-span-8 p-2 bg-purple-50/50 rounded-lg border border-purple-100">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <div className="text-gray-600 text-xs">Logs: {c.name}</div>
                     <div className="flex items-center gap-3 text-xs">
-                      <button
-                        className="rounded bg-indigo-600 text-white px-2 py-1 hover:bg-indigo-500 disabled:bg-indigo-300"
-                        onClick={() => triggerUpdate(c)}
-                        disabled={updates[c.id]?.state === 'loading'}
-                      >
-                        {updates[c.id]?.state === 'loading' ? 'Updating…' : 'Pull & restart'}
-                      </button>
+                      {c.state === 'running' ? (
+                        <>
+                          <button
+                            className="rounded bg-indigo-600 text-white px-2 py-1 hover:bg-indigo-500 disabled:bg-indigo-300"
+                            onClick={() => triggerUpdate(c)}
+                            disabled={updates[c.id]?.state === 'loading'}
+                          >
+                            {updates[c.id]?.state === 'loading' ? 'Working…' : 'Pull & restart'}
+                          </button>
+                          <button
+                            className="rounded bg-red-600 text-white px-2 py-1 hover:bg-red-500 disabled:bg-red-300"
+                            onClick={() => triggerLifecycle(c, 'stop')}
+                            disabled={updates[c.id]?.state === 'loading'}
+                          >
+                            Stop
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          className="rounded bg-green-600 text-white px-2 py-1 hover:bg-green-500 disabled:bg-green-300"
+                          onClick={() => triggerLifecycle(c, 'start')}
+                          disabled={updates[c.id]?.state === 'loading'}
+                        >
+                          Start
+                        </button>
+                      )}
                       <label className="flex items-center gap-1">
                         <span>Tail:</span>
                         <select className="border rounded px-1 py-0.5" value={tail} onChange={(e) => setTail(parseInt(e.target.value, 10))}>

@@ -56,6 +56,7 @@ When Docker socket access is available, RMA provides additional container monito
 - Pull latest image and restart container (including RMA's own container — handled by the external `container-manager` service, so self-update survives the restart)
 - Live update status reporting (pulling → restarting → verifying → done / rolled-back)
 - Automatic rollback to the previous container when the new one fails to start
+- Stop / start individual containers — a stopped container stays down (restart policies do not kick in after an explicit stop) and can be started again from the dashboard; stopped containers are listed alongside running ones
 
 **Configuration:**
 - Enable via `ENABLE_DOCKER_STATS=true` environment variable
@@ -340,11 +341,12 @@ services:
 kma-rma reaches the manager over the host loopback; `HOST=127.0.0.1` keeps the manager unreachable from outside the machine (the equivalent of the internal network in the bridge variant).
 
 This enables:
-- Container list with CPU/RAM usage
+- Container list with CPU/RAM usage (stopped containers included)
 - Real-time container logs streaming
 - Container image pull & restart with automatic rollback — for every container (or only those listed in `ALLOWED_CONTAINERS`, if set), including `kma-rma` itself
+- Container stop / start (same `ALLOWED_CONTAINERS` restriction) — a stopped container stays down until started again from the dashboard
 
-**Dev fallback:** without `CONTAINER_MANAGER_URL` the backend reads a locally mounted `/var/run/docker.sock` directly (stats/logs only; updates return 503).
+**Dev fallback:** without `CONTAINER_MANAGER_URL` the backend reads a locally mounted `/var/run/docker.sock` directly (stats/logs only; updates and stop/start return 503).
 
 ### Enabling Router/Gateway Monitoring
 

@@ -3,6 +3,7 @@ import { dockerJsonRequest } from '../docker/client';
 export type ContainerStat = {
   id: string;
   name: string;
+  state: string;
   cpuPercent: number;
   memPercent: number;
   memMB: number;
@@ -11,12 +12,16 @@ export type ContainerStat = {
 export async function getContainersStats(): Promise<ContainerStat[]> {
   try {
     const containers = await dockerJsonRequest<any[]>({
-      path: '/containers/json',
+      path: '/containers/json?all=true',
       method: 'GET'
     });
     const tasks = (containers as any[]).map(async (c) => {
       const id = c.Id as string;
       const name = (c.Names?.[0] || '').replace(/^\//, '') as string;
+      const state = (c.State || 'unknown') as string;
+      if (state !== 'running') {
+        return { id, name, state, cpuPercent: 0, memPercent: 0, memMB: 0 } as ContainerStat;
+      }
       try {
         const stats = await dockerJsonRequest<any>({
           path: `/containers/${id}/stats?stream=false`,
@@ -24,9 +29,9 @@ export async function getContainersStats(): Promise<ContainerStat[]> {
         });
         const cpu = computeCpuPercent(stats);
         const { memPercent, memMB } = computeMem(stats);
-        return { id, name, cpuPercent: cpu, memPercent, memMB } as ContainerStat;
+        return { id, name, state, cpuPercent: cpu, memPercent, memMB } as ContainerStat;
       } catch {
-        return { id, name, cpuPercent: 0, memPercent: 0, memMB: 0 } as ContainerStat;
+        return { id, name, state, cpuPercent: 0, memPercent: 0, memMB: 0 } as ContainerStat;
       }
     });
     const results = (await Promise.all(tasks)) as ContainerStat[];
