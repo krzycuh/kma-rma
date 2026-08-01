@@ -3,6 +3,7 @@ import { ALLOW_ALL_CONTAINERS, ALLOWED_CONTAINERS, HOST, MANAGER_TOKEN, PORT } f
 import { isAuthorized } from './auth';
 import { isAllowedReadPath, proxyDockerGet } from './readProxy';
 import { ConflictError, ForbiddenError, getStatus, startUpdate } from './updateManager';
+import { LifecycleAction, performLifecycleAction } from './lifecycle';
 import { DockerError } from './dockerClient';
 
 const MAX_BODY_BYTES = 64 * 1024;
@@ -62,6 +63,41 @@ async function handleUpdate(req: IncomingMessage, res: ServerResponse): Promise<
   }
 }
 
+async function handleLifecycle(
+  req: IncomingMessage,
+  res: ServerResponse,
+  action: LifecycleAction
+): Promise<void> {
+  let body: { container?: string };
+  try {
+    body = JSON.parse((await readBody(req)) || '{}');
+  } catch {
+    sendJson(res, 400, { error: 'Invalid JSON body' });
+    return;
+  }
+
+  const container = typeof body.container === 'string' ? body.container.trim() : '';
+  if (!container) {
+    sendJson(res, 400, { error: 'Field "container" is required' });
+    return;
+  }
+
+  try {
+    const result = await performLifecycleAction(container, action);
+    sendJson(res, 200, result);
+  } catch (err) {
+    if (err instanceof ConflictError) {
+      sendJson(res, 409, { error: err.message });
+    } else if (err instanceof ForbiddenError) {
+      sendJson(res, 403, { error: err.message });
+    } else if (err instanceof DockerError) {
+      sendJson(res, err.statusCode === 404 ? 404 : 500, { error: err.message });
+    } else {
+      sendJson(res, 500, { error: (err as Error).message });
+    }
+  }
+}
+
 function createServer(): http.Server {
   return http.createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url || '/';
@@ -84,6 +120,11 @@ function createServer(): http.Server {
 
     if (req.method === 'POST' && pathname === '/update') {
       void handleUpdate(req, res);
+      return;
+    }
+
+    if (req.method === 'POST' && (pathname === '/stop' || pathname === '/start')) {
+      void handleLifecycle(req, res, pathname === '/stop' ? 'stop' : 'start');
       return;
     }
 
