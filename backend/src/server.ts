@@ -15,21 +15,25 @@ function createServer(): http.Server {
       return;
     }
 
-    // 2. Auth for other routes (/api/health stays open for Docker HEALTHCHECK)
-    const user = validateToken(token);
-    if (!user && pathname !== '/unauthorized' && pathname !== '/api/health') {
-      res.writeHead(302, { Location: '/unauthorized' });
-      res.end();
-      return;
-    }
-
-    // 3. API routes
-    if (await handleApiRoutes(req, res, pathname, user || '')) {
-      return;
-    }
-
-    // 4. Page routes
+    // 2. SPA shell (no auth). index.html contains no secrets - all data
+    // comes from /api/* which stays token-protected. Serving it without a
+    // token is required for the installed PWA: the home-screen icon opens
+    // the manifest's start_url ("/") with no ?token=, and the SPA then
+    // picks the token up from localStorage (or shows the token form).
     if (handlePageRoutes(req, res, pathname)) {
+      return;
+    }
+
+    // 3. Auth for API routes (/api/health stays open for Docker HEALTHCHECK)
+    const user = validateToken(token);
+    if (!user && pathname !== '/api/health') {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return;
+    }
+
+    // 4. API routes
+    if (await handleApiRoutes(req, res, pathname, user || '')) {
       return;
     }
 
@@ -49,5 +53,3 @@ if (require.main === module) {
 }
 
 export default createServer;
-
-
