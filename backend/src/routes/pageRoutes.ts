@@ -19,15 +19,6 @@ export function handlePageRoutes(
   res: ServerResponse,
   pathname: string
 ): boolean {
-  if (req.method === 'GET' && pathname === '/unauthorized') {
-    const filePath = path.join(PUBLIC_DIR, '/unauthorized.html');
-    if (!serveFile(res, filePath, 401)) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
-      res.end('Server error');
-    }
-    return true;
-  }
-
   if (req.method === 'GET' && pathname === '/') {
     const filePath = path.join(PUBLIC_DIR, '/index.html');
     if (serveFile(res, filePath)) {
@@ -41,5 +32,3 @@ export function handlePageRoutes(
 
   return false;
 }
-
-

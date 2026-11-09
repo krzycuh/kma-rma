@@ -49,7 +49,7 @@ Set via env variables (see examples):
 PUBLIC_DIR resolution: `<NODE_CWD>/../frontend/dist` so the backend serves the built SPA directly.
 
 ### API Endpoints
-All endpoints expect `?token=<token>` in the query string.
+All endpoints expect `?token=<token>` in the query string; a missing or invalid token returns `401 { error: "Unauthorized" }` (`/api/health` is exempt).
 - `GET /api/user` → `{ name: string }` – validates token, returns user name
 - `GET /api/metrics` → current host metrics snapshot (CPU, RAM, GPU)
 - `GET /api/metrics/history?limit=N` → recent samples from in-memory buffer
@@ -57,8 +57,7 @@ All endpoints expect `?token=<token>` in the query string.
 
 ### Static/Pages
 - Static assets served from `frontend/dist` when URL has an extension
-- `GET /` serves SPA `index.html`
-- `GET /unauthorized` serves `public/unauthorized.html`
+- `GET /` serves SPA `index.html` without a token (the shell has no secrets; data comes from token-protected `/api/*`). This matters for the installed PWA, whose `start_url` is `/` with no `?token=`
 - `404` serves `public/404.html` if present
 
 ## Frontend Architecture
@@ -69,8 +68,9 @@ All endpoints expect `?token=<token>` in the query string.
 - Styling: Tailwind utility classes + MUI components (Emotion styling)
 
 ### Auth Flow (SPA)
-1) Read `token` from `window.location.search`
-2) Call `/api/user?token=...`; if 200 → show main app, else show `AuthScreen`
+1) Read `token` from `window.location.search`, falling back to `localStorage` (`kma-rma-token`) so a home-screen PWA launch works without a token in the URL
+2) Call `/api/user?token=...`; if 200 → store the token in `localStorage` and show main app, else show the token form
+   (note: an iOS home-screen web app has its own storage partition separate from Safari, so the token must be entered once inside the installed app)
 3) Load feature data and provide feature-specific actions
 
 ## Install, Build, Test, Run
